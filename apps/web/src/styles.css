@@ -1,1 +1,153 @@
 @import 'tailwindcss';
+@import '@fontsource-variable/mona-sans/wdth.css';
+@import '@fontsource-variable/martian-mono/wdth.css';
+
+@custom-variant dark (&:where([data-theme='dark'], [data-theme='dark'] *));
+
+/*
+ * Colour tokens. Values are OKLCH; hex equivalents and measured contrast
+ * ratios are in the design notes. Dark mode has its own steps, not a flip.
+ */
+:root {
+  color-scheme: light;
+  --paper: oklch(0.975 0.007 75);
+  --surface: oklch(0.952 0.009 75);
+  --line: oklch(0.885 0.012 220);
+  --ink: oklch(0.235 0.022 225);
+  --ink-2: oklch(0.47 0.02 225);
+  --copper: oklch(0.68 0.135 55);
+  --copper-deep: oklch(0.5 0.125 45);
+  --on-copper: oklch(0.235 0.022 225);
+  --verdigris: oklch(0.7 0.09 180);
+  --verdigris-deep: oklch(0.48 0.075 185);
+  --danger: oklch(0.53 0.19 27);
+}
+
+:root[data-theme='dark'] {
+  color-scheme: dark;
+  --paper: oklch(0.175 0.016 225);
+  --surface: oklch(0.215 0.018 225);
+  --line: oklch(0.31 0.02 225);
+  --ink: oklch(0.95 0.008 75);
+  --ink-2: oklch(0.75 0.015 225);
+  --copper: oklch(0.76 0.13 58);
+  --copper-deep: oklch(0.76 0.13 58);
+  --on-copper: oklch(0.175 0.016 225);
+  --verdigris: oklch(0.78 0.09 180);
+  --verdigris-deep: oklch(0.78 0.09 180);
+  --danger: oklch(0.7 0.16 27);
+}
+
+@theme inline {
+  --font-sans: 'Mona Sans Variable', ui-sans-serif, system-ui, sans-serif;
+  --font-mono: 'Martian Mono Variable', ui-monospace, monospace;
+
+  --color-paper: var(--paper);
+  --color-surface: var(--surface);
+  --color-line: var(--line);
+  --color-ink: var(--ink);
+  --color-ink-2: var(--ink-2);
+  --color-copper: var(--copper);
+  --color-copper-deep: var(--copper-deep);
+  --color-on-copper: var(--on-copper);
+  --color-verdigris: var(--verdigris);
+  --color-verdigris-deep: var(--verdigris-deep);
+  --color-danger: var(--danger);
+}
+
+@layer base {
+  html {
+    background: var(--paper);
+    color: var(--ink);
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--copper-deep);
+    outline-offset: 2px;
+  }
+}
+
+@utility tabular {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+}
+
+/* The target slot catches the light as the coin drops through it. */
+.slot-glint {
+  transform-box: fill-box;
+  transform-origin: center;
+}
+
+.slot-flash .slot-glint {
+  animation: glint 900ms cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+@keyframes glint {
+  0% {
+    transform: scale(1);
+    filter: brightness(1);
+  }
+  25% {
+    transform: scale(2.4);
+    filter: brightness(1.35);
+  }
+  100% {
+    transform: scale(1);
+    filter: brightness(1);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .slot-flash .slot-glint {
+    animation: none;
+  }
+}
+
+/* The mark's coin falls in under gravity: ease-in to each impact, ease-out on each rebound. */
+.mark-coin {
+  animation: mark-drop 1100ms both;
+}
+
+@keyframes mark-drop {
+  0% {
+    transform: translateY(-40px);
+    animation-timing-function: cubic-bezier(0.55, 0, 1, 0.45);
+  }
+  52% {
+    transform: translateY(0);
+    animation-timing-function: cubic-bezier(0, 0.55, 0.45, 1);
+  }
+  68% {
+    transform: translateY(-5px);
+    animation-timing-function: cubic-bezier(0.55, 0, 1, 0.45);
+  }
+  82% {
+    transform: translateY(0);
+    animation-timing-function: cubic-bezier(0, 0.55, 0.45, 1);
+  }
+  90% {
+    transform: translateY(-1.2px);
+    animation-timing-function: cubic-bezier(0.55, 0, 1, 0.45);
+  }
+  100% {
+    transform: translateY(0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mark-coin {
+    animation: none;
+  }
+}
+
+/* Hatching for "we couldn't see" and "out of stock": colour is never the only signal. */
+@utility hatch {
+  background-image: repeating-linear-gradient(
+    135deg,
+    color-mix(in oklab, var(--ink) 18%, transparent) 0 1px,
+    transparent 1px 6px
+  );
+}
