@@ -14,7 +14,8 @@ export interface PriceHints {
   currency?: string | null;
 }
 
-const SPACES = /[    ]/g;
+// No-break, figure, narrow no-break and thin spaces: all read as a plain space.
+const SPACES = /[\u00a0\u2007\u202f\u2009]/g;
 
 // A run of digits and separators. A space or apostrophe only counts as a
 // thousands separator when exactly three digits follow it, so "pack of 3 12.99"
