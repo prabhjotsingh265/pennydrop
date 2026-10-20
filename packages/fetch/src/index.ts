@@ -10,3 +10,12 @@ export {
   type RobotsStatus,
   type RobotsVerdict,
 } from './robots.ts';
+export { BlockedAddressError, guardedLookup, isPublicAddress, type GuardOptions } from './guard.ts';
+export {
+  FetchError,
+  fetchPage,
+  type FetchErrorCode,
+  type FetchPageOptions,
+  type FetchedPage,
+  type Timings,
+} from './fetch-page.ts';
