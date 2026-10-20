@@ -1,0 +1,78 @@
+name: ci
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+
+    # Same database and queue versions as the local Docker setup.
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_DB: pennydrop_test
+          POSTGRES_USER: pennydrop
+          POSTGRES_PASSWORD: secret
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U pennydrop -d pennydrop_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+      redis:
+        image: redis:8.2-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    env:
+      DATABASE_URL: postgresql://pennydrop:secret@localhost:5432/pennydrop_test
+      REDIS_URL: redis://localhost:6379
+      COREPACK_ENABLE_DOWNLOAD_PROMPT: 0
+      TURBO_TELEMETRY_DISABLED: 1
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Setup Node
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: '24'
+
+      - name: Install packages
+        run: |
+          corepack enable
+          pnpm install --frozen-lockfile
+
+      # The audit asks a public advisory service, which is sometimes briefly
+      # down; a real finding fails all three tries.
+      - name: Check dependencies for known vulnerabilities
+        run: |
+          for attempt in 1 2 3; do
+            pnpm audit --prod --audit-level high && exit 0
+            echo "Audit failed (try $attempt of 3)"; sleep 20
+          done
+          exit 1
+
+      - name: Formatting, lint, type checks and tests
+        run: pnpm check
+
+      - name: Build
+        run: pnpm build
