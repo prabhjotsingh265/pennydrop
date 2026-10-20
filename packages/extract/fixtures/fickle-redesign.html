@@ -1,0 +1,101 @@
+<!doctype html>
+    <html lang="en-GB">
+      <head>
+        <meta charset="utf-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1" />
+        <title>Stoneware mug, speckled · fickle</title>
+        <meta name="description" content="Thrown in small batches, glazed in oatmeal with iron speckles. Holds 350 ml." />
+        <style>
+          
+*{box-sizing:border-box}
+body{margin:0;font:16px/1.5 ui-sans-serif,system-ui,sans-serif;color:#1d1b18;background:#fff}
+a{color:inherit}
+img{display:block;max-width:100%;height:auto}
+.practice{margin:0;padding:6px 16px;background:#f6f2ec;color:#6d655c;font-size:12px;text-align:center}
+.site-header{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:16px max(16px,5vw);border-bottom:1px solid #ece6de}
+.site-header .logo{font-weight:900;font-size:24px;letter-spacing:-.03em;text-decoration:none;text-transform:lowercase}
+.site-header nav{display:flex;gap:20px;font-size:14px}
+.site-header nav a{text-decoration:none}
+.site-footer{margin-top:64px;padding:24px max(16px,5vw);border-top:1px solid #ece6de;color:#8a8178;font-size:13px}
+.listing{padding:24px max(16px,5vw)}
+.listing h1{font:400 34px/1.15 Georgia,serif;margin:8px 0 4px}
+.listing>p{color:#6d655c;margin:0 0 24px}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:24px}
+button{font:inherit;cursor:pointer}
+
+.site-header{background:#1d1b18;color:#fff;border:0}
+.pdp{padding:0 0 16px}
+.pdp__hero{background:#ede6dc;display:flex;justify-content:center;max-height:440px;overflow:hidden}
+.pdp__hero img{max-width:440px}
+.pdp__head{display:flex;justify-content:space-between;align-items:flex-start;gap:24px;padding:28px max(16px,5vw) 8px}
+.pdp__name{font:400 40px/1.1 Georgia,serif;margin:0}
+.pdp__rating{color:#8a8178;font-size:14px}
+.pdp__pricing{text-align:right}
+.pdp__amount{font-size:44px;font-weight:600;line-height:1}
+.pdp__amount.is-sale{color:#b3261e}
+.pdp__was{display:block;color:#8a8178;font-size:14px;margin-top:6px}
+.pdp__stock,.pdp__copy{padding:0 max(16px,5vw);color:#4f4a44}
+.pdp__cta{display:block;width:calc(100% - 2 * max(16px,5vw));margin:16px auto;background:#1d1b18;color:#fff;border:0;border-radius:8px;padding:16px}
+.pdp__cta:disabled{background:#c9c2b9}
+.pdp__related{padding:24px max(16px,5vw)}
+.pdp__related h2{font:400 24px Georgia,serif}
+.pdp__card{text-decoration:none}
+.pdp__card-name{margin:10px 0 2px;font-size:15px}
+.pdp__card-price{font-size:14px;color:#4f4a44}
+
+        </style>
+        
+      </head>
+      <body>
+        <p class="practice">
+          A practice shop for testing price monitors. Nothing here is for sale.
+        </p>
+        <header class="site-header">
+          <a class="logo" href="/">fickle</a>
+          <nav>
+            <a href="/c/kitchen">Kitchen</a>
+            <a href="/c/desk">Desk</a>
+            <a href="/c/home">Home</a>
+          </nav>
+        </header>
+        <main class="pdp">
+    <div class="pdp__hero">
+      <img src="/art/stoneware-mug.svg" alt="Stoneware mug, speckled" width="400" height="400" />
+    </div>
+    <div class="pdp__head">
+      <div>
+        <h1 class="pdp__name">Stoneware mug, speckled</h1>
+        <p class="pdp__rating">★★★★☆ 123 reviews</p>
+      </div>
+      <div class="pdp__pricing">
+        <div class="pdp__amount is-sale" data-price>
+          £31.99
+        </div>
+        <span class="pdp__was">was <s>£37.99</s> · Sale</span>
+      </div>
+    </div>
+    <p class="pdp__stock">In stock, ready to send</p>
+    <button class="pdp__cta" >
+      Add to basket
+    </button>
+    <p class="pdp__copy">Thrown in small batches, glazed in oatmeal with iron speckles. Holds 350 ml.</p>
+    <section class="pdp__related">
+    <h2>You might also like</h2>
+    <div class="grid"><a class="pdp__card" href="/p/ink-blue-mug">
+    <img src="/art/ink-blue-mug.svg" alt="" width="400" height="400" loading="lazy" />
+    <p class="pdp__card-name">Stoneware mug, ink blue</p>
+    <span class="pdp__card-price">£24.99</span>
+  </a><a class="pdp__card" href="/p/enamel-colander">
+    <img src="/art/enamel-colander.svg" alt="" width="400" height="400" loading="lazy" />
+    <p class="pdp__card-name">Enamel colander</p>
+    <span class="pdp__card-price">£14.00</span>
+  </a><a class="pdp__card" href="/p/serving-bowl">
+    <img src="/art/serving-bowl.svg" alt="" width="400" height="400" loading="lazy" />
+    <p class="pdp__card-name">Ceramic serving bowl</p>
+    <span class="pdp__card-price">£22.99</span>
+  </a></div>
+  </section>
+  </main>
+        <footer class="site-footer">fickle · Things for the kitchen, the desk and home.</footer>
+      </body>
+    </html>

@@ -1,0 +1,99 @@
+<!doctype html>
+    <html lang="en-GB">
+      <head>
+        <meta charset="utf-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1" />
+        <title>Stoneware mug, speckled · fickle</title>
+        <meta name="description" content="Thrown in small batches, glazed in oatmeal with iron speckles. Holds 350 ml." />
+        <style>
+          
+*{box-sizing:border-box}
+body{margin:0;font:16px/1.5 ui-sans-serif,system-ui,sans-serif;color:#1d1b18;background:#fff}
+a{color:inherit}
+img{display:block;max-width:100%;height:auto}
+.practice{margin:0;padding:6px 16px;background:#f6f2ec;color:#6d655c;font-size:12px;text-align:center}
+.site-header{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:16px max(16px,5vw);border-bottom:1px solid #ece6de}
+.site-header .logo{font-weight:900;font-size:24px;letter-spacing:-.03em;text-decoration:none;text-transform:lowercase}
+.site-header nav{display:flex;gap:20px;font-size:14px}
+.site-header nav a{text-decoration:none}
+.site-footer{margin-top:64px;padding:24px max(16px,5vw);border-top:1px solid #ece6de;color:#8a8178;font-size:13px}
+.listing{padding:24px max(16px,5vw)}
+.listing h1{font:400 34px/1.15 Georgia,serif;margin:8px 0 4px}
+.listing>p{color:#6d655c;margin:0 0 24px}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:24px}
+button{font:inherit;cursor:pointer}
+
+.css-r2u42q{display:grid;grid-template-columns:minmax(0,1.2fr) minmax(0,1fr);gap:48px;padding:32px max(16px,5vw)}
+.css-xq9tuo img{border-radius:24px}
+.css-kfv69y{font:700 32px/1.1 ui-sans-serif,system-ui;letter-spacing:-.02em;margin:0 0 16px}
+.css-7esxyg{font-size:34px;font-weight:700;min-height:44px}
+.css-khwpst,.css-wch4vt{color:#8a8178;font-size:14px;min-height:21px}
+.css-acsce4{margin-top:24px;width:100%;background:#3b3bf2;color:#fff;border:0;border-radius:999px;padding:16px}
+.css-w9rbe4{color:#4f4a44}
+.css-b143lo{grid-column:1/-1}
+.css-t54m50{text-decoration:none}
+.css-o3azaz{margin:10px 0 2px;font-size:15px}
+.css-3azcil{font-size:14px;color:#4f4a44}
+@media (max-width:720px){.css-r2u42q{grid-template-columns:1fr}}
+
+        </style>
+        
+      </head>
+      <body>
+        <p class="practice">
+          A practice shop for testing price monitors. Nothing here is for sale.
+        </p>
+        <header class="site-header">
+          <a class="logo" href="/">fickle</a>
+          <nav>
+            <a href="/c/kitchen">Kitchen</a>
+            <a href="/c/desk">Desk</a>
+            <a href="/c/home">Home</a>
+          </nav>
+        </header>
+        <main class="css-r2u42q">
+      <div class="css-xq9tuo">
+        <img src="/art/stoneware-mug.svg" alt="Stoneware mug, speckled" width="400" height="400" />
+      </div>
+      <div>
+        <h1 class="css-kfv69y">Stoneware mug, speckled</h1>
+        <div class="css-7esxyg" data-testid="price"></div>
+        <div class="css-khwpst" data-testid="was"></div>
+        <div class="css-wch4vt" data-testid="stock"></div>
+        <button class="css-acsce4">Add to basket</button>
+        <p class="css-w9rbe4">Thrown in small batches, glazed in oatmeal with iron speckles. Holds 350 ml.</p>
+      </div>
+      <div class="css-b143lo"><section class="css-b143lo">
+    <h2>You might also like</h2>
+    <div class="grid"><a class="css-t54m50" href="/p/ink-blue-mug">
+    <img src="/art/ink-blue-mug.svg" alt="" width="400" height="400" loading="lazy" />
+    <p class="css-o3azaz">Stoneware mug, ink blue</p>
+    <span class="css-3azcil">£24.99</span>
+  </a><a class="css-t54m50" href="/p/enamel-colander">
+    <img src="/art/enamel-colander.svg" alt="" width="400" height="400" loading="lazy" />
+    <p class="css-o3azaz">Enamel colander</p>
+    <span class="css-3azcil">£14.00</span>
+  </a><a class="css-t54m50" href="/p/serving-bowl">
+    <img src="/art/serving-bowl.svg" alt="" width="400" height="400" loading="lazy" />
+    <p class="css-o3azaz">Ceramic serving bowl</p>
+    <span class="css-3azcil">£22.99</span>
+  </a></div>
+  </section></div>
+    </main>
+    <script>
+      (async () => {
+        const quote = await fetch('/api/price/' + "stoneware-mug").then((r) =>
+          r.json(),
+        );
+        document.querySelector('[data-testid=price]').textContent = quote.display;
+        document.querySelector('[data-testid=was]').textContent = quote.wasDisplay
+          ? 'was ' + quote.wasDisplay
+          : '';
+        document.querySelector('[data-testid=stock]').textContent = quote.inStock
+          ? 'In stock'
+          : 'Out of stock';
+      })();
+    </script>
+        <footer class="site-footer">fickle · Things for the kitchen, the desk and home.</footer>
+      </body>
+    </html>
