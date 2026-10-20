@@ -1,0 +1,105 @@
+name: pennydrop
+
+# Shared by every container that runs the TypeScript code.
+x-node: &node
+  image: pennydrop-node:dev
+  build:
+    context: .
+    target: dev
+    args:
+      UID: ${HOST_UID:-1000}
+      GID: ${HOST_GID:-1000}
+  # Back up after a crash, or when Docker starts again after a reboot.
+  restart: unless-stopped
+  env_file:
+    - path: .env
+      required: false
+  volumes:
+    - .:/app
+    - pnpm-store:/pnpm-store
+
+services:
+  # The React app through Vite's dev server, which passes /api on to the API.
+  web:
+    <<: *node
+    command: ['pnpm', '--filter', '@pennydrop/web', 'dev']
+    environment:
+      API_ORIGIN: http://api:3001
+    ports:
+      - '${FORWARD_WEB_PORT:-3000}:3000'
+    depends_on:
+      api:
+        condition: service_healthy
+
+  api:
+    <<: *node
+    command: ['pnpm', '--filter', '@pennydrop/api', 'dev']
+    ports:
+      - '${FORWARD_API_PORT:-3001}:3001'
+    healthcheck:
+      test:
+        [
+          'CMD',
+          'node',
+          '-e',
+          "fetch('http://127.0.0.1:3001/api/health').then(r => process.exit(r.ok ? 0 : 1), () => process.exit(1))",
+        ]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  postgres:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: pennydrop
+      POSTGRES_USER: pennydrop
+      POSTGRES_PASSWORD: secret
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ./docker/postgres/create-test-database.sql:/docker-entrypoint-initdb.d/create-test-database.sql:ro
+    # Published only so you can connect a database GUI.
+    ports:
+      - '${FORWARD_DB_PORT:-55433}:5432'
+    healthcheck:
+      test: ['CMD', 'pg_isready', '-U', 'pennydrop', '-d', 'pennydrop']
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  # Queues need every job kept, so Redis must never evict keys to save memory.
+  redis:
+    image: redis:8.2-alpine
+    restart: unless-stopped
+    command: ['redis-server', '--appendonly', 'yes', '--maxmemory-policy', 'noeviction']
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  # Catches every email locally, so nothing real is ever sent.
+  mailpit:
+    image: axllent/mailpit:v1.31
+    restart: unless-stopped
+    ports:
+      - '${FORWARD_MAILPIT_DASHBOARD_PORT:-8026}:8025'
+
+  # One-off commands (pnpm install, prettier, …): make pnpm c="…".
+  tools:
+    <<: *node
+    profiles: ['tools']
+    restart: 'no'
+    command: ['bash']
+
+volumes:
+  pnpm-store:
+  postgres-data:
+  redis-data:
