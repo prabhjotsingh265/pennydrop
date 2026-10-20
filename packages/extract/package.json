@@ -10,7 +10,8 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "cheerio": "1.2.0"
+    "cheerio": "1.2.0",
+    "domhandler": "5.0.3"
   },
   "devDependencies": {
     "fast-check": "4.10.2",
