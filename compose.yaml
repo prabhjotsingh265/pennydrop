@@ -53,6 +53,13 @@ services:
       redis:
         condition: service_healthy
 
+  # The practice shops: fickle, slowpoke and brittle, one service told apart by hostname.
+  shop:
+    <<: *node
+    command: ['pnpm', '--filter', '@pennydrop/shop', 'dev']
+    ports:
+      - '${FORWARD_SHOP_PORT:-4000}:4000'
+
   postgres:
     image: postgres:17-alpine
     restart: unless-stopped
