@@ -91,6 +91,7 @@ function report(extra: Partial<CheckReport> = {}): CheckReport {
     strategy: 'json-ld',
     conflict: false,
     locator: '.price-now',
+    locatorAttribute: null,
     readings: [
       { strategy: 'json-ld', status: 'found', amount: 3199, confidence: 0.95, note: null },
     ],

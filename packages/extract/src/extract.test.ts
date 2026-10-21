@@ -161,3 +161,29 @@ describe('was prices by their wording', () => {
     },
   );
 });
+
+describe('where to point next time', () => {
+  it('prefers the price people see over the markup behind it', () => {
+    const result = extract({ html: fixture('fickle-classic') });
+    expect(result).toMatchObject({ locator: '.price-now', locatorAttribute: null });
+  });
+
+  it('points at a <meta> tag’s content when that’s the only place the price is', () => {
+    const html = page(
+      '<div itemscope itemtype="https://schema.org/Product"><h1 itemprop="name">Lamp</h1>' +
+        '<div itemprop="offers" itemscope itemtype="https://schema.org/Offer"><meta itemprop="price" content="12.00"><meta itemprop="priceCurrency" content="GBP"></div></div>',
+    );
+    const result = extract({ html });
+    expect(result).toMatchObject({
+      amount: 1200,
+      locator: '[itemprop="price"]',
+      locatorAttribute: 'content',
+    });
+    // And reading it back that way works.
+    const again = extract({
+      html,
+      recipe: { selector: result.locator!, attribute: result.locatorAttribute },
+    });
+    expect(again.results[0]?.candidates[0]?.amount).toBe(1200);
+  });
+});

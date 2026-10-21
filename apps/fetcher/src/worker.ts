@@ -59,6 +59,7 @@ export function toReport(result: CheckResult, lane: 'http' | 'browser', extra: E
     strategy: extraction?.strategy ?? null,
     conflict: extraction?.conflict ?? false,
     locator: extraction?.locator ?? null,
+    locatorAttribute: extraction?.locatorAttribute ?? null,
     readings: (extraction?.results ?? []).map((r) => ({
       strategy: r.strategy,
       status: r.status,
@@ -93,6 +94,7 @@ function skipped(job: FetchJob, retryAt: number, worker: string, at: number): Ch
     strategy: null,
     conflict: false,
     locator: null,
+    locatorAttribute: null,
     readings: [],
     neededBrowser: false,
     wantsBrowser: false,

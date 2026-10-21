@@ -79,6 +79,8 @@ export interface CheckReport {
   conflict: boolean;
   /** Where the price sits, when a selector can point at it: the healing candidate. */
   locator: string | null;
+  /** The attribute to read at the locator, when the price isn't its text. */
+  locatorAttribute: string | null;
   readings: Reading[];
   neededBrowser: boolean;
   /** The plain-HTTP lane found no price in the HTML: worth a try in a browser. */

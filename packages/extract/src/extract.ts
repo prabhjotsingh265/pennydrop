@@ -28,6 +28,8 @@ export interface Extraction {
   conflict: boolean;
   /** Where the winning price sits on the page, when a selector can point at it. */
   locator: string | null;
+  /** The attribute to read there, when the price isn't the element's text. */
+  locatorAttribute: string | null;
   results: StrategyResult[];
 }
 
@@ -44,6 +46,7 @@ export interface ExtractInput {
 export const ACCEPT = 0.4;
 
 const ORDER: Strategy[] = ['selector', 'json-ld', 'microdata', 'meta', 'heuristic'];
+const POINT_AT: Strategy[] = ['heuristic', 'selector', 'microdata'];
 const TRUSTED = 0.75;
 
 /**
@@ -87,6 +90,11 @@ export function extract({ html, recipe, hints = {}, boxes = [] }: ExtractInput):
   );
 
   const accepted = winner.length > 0 && confidence >= ACCEPT;
+  // Where to point next time: the price people see, if it agreed; then the saved
+  // selector; then markup like a <meta> tag, with the attribute that holds the price.
+  const pointer = accepted
+    ? POINT_AT.map((s) => winner.find((c) => c.strategy === s && c.locator)).find(Boolean)
+    : undefined;
   const agreeing = ORDER.filter((s) => winner.some((c) => c.strategy === s));
   const lead = winner.find((c) => c.strategy === agreeing[0]);
   const inStock =
@@ -101,7 +109,8 @@ export function extract({ html, recipe, hints = {}, boxes = [] }: ExtractInput):
     strategy: accepted ? (agreeing[0] ?? null) : null,
     agreeing: accepted ? agreeing : [],
     conflict: trustedGroups.length > 1,
-    locator: accepted ? (winner.find((c) => c.locator)?.locator ?? null) : null,
+    locator: pointer?.locator ?? null,
+    locatorAttribute: pointer?.attribute ?? null,
     results,
   };
 }

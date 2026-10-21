@@ -147,7 +147,7 @@ export async function ingest(deps: IngestDeps, data: IngestJob): Promise<IngestR
       const selector = report.readings.find((r) => r.strategy === 'selector');
       let recipeChange: {
         retire?: string;
-        create?: { selector: string; source: 'auto' | 'healed' };
+        create?: { selector: string; attribute: string | null; source: 'auto' | 'healed' };
       } = {};
       if (SUCCESS.has(outcome) && report.locator) {
         if (
@@ -157,7 +157,11 @@ export async function ingest(deps: IngestDeps, data: IngestJob): Promise<IngestR
         ) {
           recipeChange = {
             retire: job.recipe.id,
-            create: { selector: report.locator, source: 'healed' },
+            create: {
+              selector: report.locator,
+              attribute: report.locatorAttribute,
+              source: 'healed',
+            },
           };
           const how = report.strategy ?? 'another strategy';
           events.push({
@@ -171,7 +175,13 @@ export async function ingest(deps: IngestDeps, data: IngestJob): Promise<IngestR
             site: true,
           });
         } else if (!job.recipe) {
-          recipeChange = { create: { selector: report.locator, source: 'auto' } };
+          recipeChange = {
+            create: {
+              selector: report.locator,
+              attribute: report.locatorAttribute,
+              source: 'auto',
+            },
+          };
         }
       }
 
@@ -313,6 +323,7 @@ export async function ingest(deps: IngestDeps, data: IngestJob): Promise<IngestR
             data: {
               siteId: target.siteId,
               selector: recipeChange.create.selector,
+              attribute: recipeChange.create.attribute,
               source: recipeChange.create.source,
             },
           });

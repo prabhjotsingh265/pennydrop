@@ -26,6 +26,8 @@ export interface Candidate {
   inStock?: boolean | null;
   /** A selector for the element it came from, when it came from one. */
   locator?: string;
+  /** The attribute holding the price, when it isn't the element's text (a <meta> tag's content). */
+  attribute?: string;
   /** Why it was read this way, in words. */
   note: string;
 }
@@ -153,6 +155,7 @@ export function fromMicrodata(page: Page, hints: PriceHints): StrategyResult {
         confidence: prices.length === 1 ? 0.9 : 0.7,
         inStock: availability(stock.attr('href') ?? stock.attr('content')),
         locator: selectorFor($, el),
+        ...(content !== undefined ? { attribute: 'content' } : {}),
         note: 'marked itemprop="price"',
       },
     ];
