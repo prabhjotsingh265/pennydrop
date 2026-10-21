@@ -3,6 +3,8 @@ import { LogOut, Moon, Plus, Sun } from 'lucide-react';
 import { Link, NavLink, Outlet, useNavigate } from 'react-router';
 import { BrandMark } from '../components/BrandMark.tsx';
 import { authClient } from '../lib/auth-client.ts';
+import { useLiveStatus } from '../lib/live-status.ts';
+import { useLiveUpdates } from '../lib/live.ts';
 import { useMe } from '../lib/queries.ts';
 import { useTheme } from '../lib/theme.ts';
 import { buttonClass } from '../ui/Button.tsx';
@@ -62,7 +64,29 @@ function ThemeToggle() {
   );
 }
 
+/** A small sign that updates arrive by themselves; colour is never the only signal. */
+function LiveMark() {
+  const live = useLiveStatus();
+  return (
+    <span
+      className="tabular hidden items-center gap-1.5 text-[11px] text-ink-2 md:inline-flex"
+      title={
+        live
+          ? 'Prices update here as soon as they’re checked.'
+          : 'Reconnecting: prices refresh every 30 s meanwhile.'
+      }
+    >
+      <span
+        aria-hidden="true"
+        className={`size-2 rounded-full ${live ? 'bg-verdigris' : 'border border-ink-2'}`}
+      />
+      {live ? 'Live' : 'Offline'}
+    </span>
+  );
+}
+
 export function Shell() {
+  useLiveUpdates();
   return (
     <div className="min-h-dvh">
       <header className="sticky top-0 z-20 border-b border-line bg-paper/85 backdrop-blur">
@@ -83,6 +107,7 @@ export function Shell() {
             </NavLink>
           </nav>
           <div className="ml-auto flex items-center gap-1 sm:gap-2">
+            <LiveMark />
             <Link to="/app/add" className={buttonClass('primary', 'px-3 sm:px-4')}>
               <Plus size={16} aria-hidden="true" />
               <span className="hidden sm:inline">Add product</span>

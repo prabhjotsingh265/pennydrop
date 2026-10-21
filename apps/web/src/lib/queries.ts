@@ -14,6 +14,7 @@ import {
   useQueryClient,
 } from '@tanstack/react-query';
 import { ApiError, api } from './api.ts';
+import { usePollInterval } from './live-status.ts';
 
 export const keys = {
   me: ['me'] as const,
@@ -55,31 +56,34 @@ export function useMe() {
 }
 
 export function useWatches() {
+  const poll = usePollInterval();
   return useQuery({
     queryKey: keys.watches,
     queryFn: ({ signal }) =>
       api<{ watches: WatchSummary[] }>('/api/watches', { signal }).then((data) => data.watches),
-    refetchInterval: 30_000,
+    refetchInterval: poll,
   });
 }
 
 /** One product. `eager`: a check was just asked for, so look every couple of seconds. */
 export function useWatch(id: string, eager = false) {
+  const poll = usePollInterval();
   return useQuery({
     queryKey: keys.watch(id),
     queryFn: ({ signal }) => api<WatchDetail>(`/api/watches/${id}`, { signal }),
-    refetchInterval: eager ? 2_000 : 30_000,
+    refetchInterval: eager ? 2_000 : poll,
   });
 }
 
 export function useChecks(id: string, eager = false) {
+  const poll = usePollInterval();
   return useQuery({
     queryKey: keys.checks(id),
     queryFn: ({ signal }) =>
       api<{ checks: CheckSummary[] }>(`/api/watches/${id}/checks`, { signal }).then(
         (data) => data.checks,
       ),
-    refetchInterval: eager ? 2_000 : 30_000,
+    refetchInterval: eager ? 2_000 : poll,
   });
 }
 

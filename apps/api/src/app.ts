@@ -1,11 +1,13 @@
 import type { Db } from '@pennydrop/db';
 import { updateWorkspaceSchema, type Me } from '@pennydrop/domain';
+import type { LiveMessage } from '@pennydrop/queue';
 import { fromNodeHeaders } from 'better-auth/node';
 import Fastify, { type FastifyReply, type FastifyRequest } from 'fastify';
 import { ZodError } from 'zod';
 import { systemLookup, type Lookup } from './addresses.ts';
 import type { Auth } from './auth.ts';
 import type { Config } from './config.ts';
+import type { LiveHub } from './live.ts';
 import { previewRoutes } from './preview-routes.ts';
 import type { Previews } from './previews.ts';
 import { watchRoutes } from './watches.ts';
@@ -31,6 +33,9 @@ export interface AppDeps {
   /** Asks the dispatcher to run now, so a new or "check now" product isn't left for the next tick. */
   wake: () => Promise<void>;
   previews: Previews;
+  /** Open dashboards on this process, and how to tell every process about a change. */
+  live: LiveHub;
+  publish: (message: LiveMessage) => Promise<void>;
   lookup?: Lookup;
   now?: () => number;
   logger?: boolean;
@@ -123,10 +128,42 @@ export function buildApp(deps: AppDeps) {
       ...vet,
       wake: deps.wake,
       previews: deps.previews,
+      publish: deps.publish,
       now: deps.now,
     });
     await previewRoutes(dashboard, { ...vet, previews: deps.previews });
+
+    // Live updates for the dashboard, as Server-Sent Events.
+    dashboard.get('/api/events', async (request, reply) => {
+      const { workspaceId } = request.member!;
+      reply.hijack();
+      const raw = reply.raw;
+      raw.writeHead(200, {
+        'content-type': 'text/event-stream; charset=utf-8',
+        'cache-control': 'no-cache, no-transform',
+        connection: 'keep-alive',
+        // Tells a buffering proxy (nginx) to pass each event on at once.
+        'x-accel-buffering': 'no',
+      });
+      // If the connection drops, the browser tries again after 5 s.
+      raw.write('retry: 5000\n\n');
+      let closed = false;
+      let disconnect = () => {};
+      request.raw.on('close', () => {
+        closed = true;
+        disconnect();
+      });
+      disconnect = await deps.live.connect(workspaceId, {
+        send: (event, data) => raw.write(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`),
+        ping: () => raw.write(': ping\n\n'),
+        end: () => raw.end(),
+      });
+      if (closed) disconnect();
+    });
   });
+
+  // Before the server waits for open connections to finish: live streams never would.
+  app.addHook('preClose', async () => deps.live.closeAll());
 
   app.setErrorHandler((error, _request, reply) => {
     if (error instanceof ZodError) {

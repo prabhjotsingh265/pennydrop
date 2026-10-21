@@ -4,13 +4,12 @@ import { PriceDigits } from '../components/PriceDigits.tsx';
 import { StepChart } from '../components/StepChart.tsx';
 import { formatMoney } from '../lib/money.ts';
 import { useTheme } from '../lib/theme.ts';
+import { sparkDomain } from '../lib/chart.ts';
 import { ago } from '../lib/time.ts';
 import { patina, proximityTint } from '../lib/tint.ts';
 import { distance, trouble, waiting } from '../lib/watchlist.ts';
 
-const WINDOW_MS = 30 * 86_400_000;
-
-/** One product: its price, how close it is to your target, and its last 30 days. */
+/** One product: its price, how close it is to your target, and its recent history. */
 export function WatchCard({ watch, now }: { watch: WatchSummary; now: number }) {
   const [theme] = useTheme();
   const currency = watch.currency ?? 'GBP';
@@ -95,7 +94,7 @@ export function WatchCard({ watch, now }: { watch: WatchSummary; now: number }) 
             points={points}
             target={watch.targetPrice}
             currency={currency}
-            domain={[now - WINDOW_MS, now]}
+            domain={sparkDomain(points, now)}
             now={now}
             height={64}
             label={`${watch.label}: ${

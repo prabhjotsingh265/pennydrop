@@ -67,3 +67,15 @@ export function defaultRange(history: History, now: number): RangeKey {
   const first = history[0] ? Date.parse(history[0].t) : now;
   return now - first < 7 * DAY ? 'all' : '30d';
 }
+
+/**
+ * A card's window: the last 30 days, or the whole of a younger product's life
+ * (at least an hour), with a little room before its first reading.
+ */
+export function sparkDomain(points: readonly { t: number }[], now: number): [number, number] {
+  const month = now - 30 * DAY;
+  const first = points[0]?.t;
+  if (first === undefined || first <= month) return [month, now];
+  const span = Math.max(now - first, 3_600_000);
+  return [now - span * 1.05, now];
+}

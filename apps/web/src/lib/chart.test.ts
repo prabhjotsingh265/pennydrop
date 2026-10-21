@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   defaultRange,
+  sparkDomain,
   extremes,
   rangeDomain,
   soldOutBands,
@@ -56,5 +57,17 @@ describe('defaultRange', () => {
     expect(defaultRange([{ t: at(0.3), price: 1, inStock: true }], NOW)).toBe('all');
     expect(defaultRange([], NOW)).toBe('all');
     expect(defaultRange(history, NOW)).toBe('30d');
+  });
+});
+
+describe('sparkDomain', () => {
+  it('shows a young product’s whole life, and an older one’s last 30 days', () => {
+    const [from, to] = sparkDomain([{ t: NOW - 10 * 3_600_000 }], NOW);
+    expect(to).toBe(NOW);
+    expect(from).toBeCloseTo(NOW - 10.5 * 3_600_000, -3);
+    expect(sparkDomain([{ t: NOW - 40 * DAY }], NOW)).toEqual([NOW - 30 * DAY, NOW]);
+    expect(sparkDomain([], NOW)).toEqual([NOW - 30 * DAY, NOW]);
+    // Read a moment ago: still an hour wide, so the line has room.
+    expect(NOW - sparkDomain([{ t: NOW - 1_000 }], NOW)[0]).toBeGreaterThan(3_600_000);
   });
 });

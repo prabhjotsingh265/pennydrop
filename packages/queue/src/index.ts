@@ -16,4 +16,5 @@ export {
   type Reading,
   type RobotsSnapshot,
 } from './jobs.ts';
+export { LIVE_CHANNEL, parseLive, publishLive, type LiveMessage } from './live.ts';
 export { redisConnection, type Redis } from './redis.ts';

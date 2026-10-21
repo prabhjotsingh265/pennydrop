@@ -10,6 +10,7 @@ import {
 import { cleanUrl } from '@pennydrop/fetch';
 import type { FastifyInstance, FastifyReply } from 'fastify';
 import { z } from 'zod';
+import type { LiveMessage } from '@pennydrop/queue';
 import type { Previews } from './previews.ts';
 import { vetAddress, type VetDeps } from './sites.ts';
 
@@ -24,6 +25,8 @@ export interface WatchDeps extends VetDeps {
   /** Asks the dispatcher to run now rather than at its next tick. */
   wake: () => Promise<void>;
   previews: Previews;
+  /** Tells every open dashboard of this workspace that its watchlist changed. */
+  publish: (message: LiveMessage) => Promise<void>;
   now?: () => number;
 }
 
@@ -253,6 +256,7 @@ export async function watchRoutes(app: FastifyInstance, deps: WatchDeps) {
       );
     }
     if (saved.created || picked) await wake();
+    if (saved.created) await deps.publish({ type: 'watches', workspaceId });
     return reply
       .code(saved.created ? 201 : 200)
       .send({ watch: await summaryOf(saved.id, recent()), created: saved.created });
@@ -347,6 +351,7 @@ export async function watchRoutes(app: FastifyInstance, deps: WatchDeps) {
       }
     });
     if (row.paused && changes.paused === false) await wake();
+    await deps.publish({ type: 'watches', workspaceId: row.workspaceId });
     return { watch: await summaryOf(row.id, recent()) };
   });
 
@@ -358,6 +363,7 @@ export async function watchRoutes(app: FastifyInstance, deps: WatchDeps) {
       await tx.watch.delete({ where: { id: row.id } });
       await syncTarget(tx, row.targetId);
     });
+    await deps.publish({ type: 'watches', workspaceId: row.workspaceId });
     return reply.code(204).send();
   });
 

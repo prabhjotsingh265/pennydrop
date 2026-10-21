@@ -1,5 +1,11 @@
 import { createDb } from '@pennydrop/db';
-import { QUEUES, redisConnection, type FetchJob, type IngestJob } from '@pennydrop/queue';
+import {
+  QUEUES,
+  publishLive,
+  redisConnection,
+  type FetchJob,
+  type IngestJob,
+} from '@pennydrop/queue';
 import { Queue, Worker } from 'bullmq';
 import { dispatch, type DispatchResult } from './dispatch.ts';
 import { ingest } from './ingest.ts';
@@ -53,10 +59,24 @@ maintainer.on('completed', (_job, result) =>
   console.log(`maintenance: pruned ${result.pruned} old checks`),
 );
 
-const ingester = new Worker<IngestJob>(QUEUES.ingest, (job) => ingest({ db, queues }, job.data), {
-  connection,
-  concurrency: 10,
-});
+const ingester = new Worker<IngestJob>(
+  QUEUES.ingest,
+  async (job) => {
+    const result = await ingest({ db, queues }, job.data);
+    // Recorded and committed: open dashboards can show it now. A missed message only
+    // costs a refresh, so it never fails the job.
+    if (result.recorded) {
+      await publishLive(connection, {
+        type: 'checked',
+        targetId: job.data.job.targetId,
+        outcome: result.outcome,
+        priceChanged: result.priceChanged,
+      }).catch((error: unknown) => console.error('live update not sent:', error));
+    }
+    return result;
+  },
+  { connection, concurrency: 10 },
+);
 ingester.on('failed', (job, error) => console.error(`ingest ${job?.id} failed:`, error.message));
 
 console.log('Worker running: dispatching every 15 s, recording results.');
