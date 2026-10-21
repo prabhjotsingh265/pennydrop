@@ -2,6 +2,9 @@
   "name": "@pennydrop/shop",
   "private": true,
   "type": "module",
+  "exports": {
+    "./app": "./src/app.ts"
+  },
   "scripts": {
     "dev": "tsx watch src/server.ts",
     "build": "tsup",

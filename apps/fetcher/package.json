@@ -1,0 +1,19 @@
+{
+  "name": "@pennydrop/fetcher",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "typecheck": "tsc",
+    "test": "vitest run --exclude 'src/**/*.browser.test.ts'",
+    "test:browser": "vitest run browser"
+  },
+  "dependencies": {
+    "@pennydrop/extract": "workspace:*",
+    "@pennydrop/fetch": "workspace:*",
+    "playwright": "1.63.0"
+  },
+  "devDependencies": {
+    "@pennydrop/shop": "workspace:*",
+    "vitest": "4.1.12"
+  }
+}
