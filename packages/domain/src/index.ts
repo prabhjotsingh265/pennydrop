@@ -11,3 +11,4 @@ export {
   type WatchStatus,
   type WatchSummary,
 } from './watches.ts';
+export { updateWorkspaceSchema, type UpdateWorkspaceInput } from './workspace.ts';

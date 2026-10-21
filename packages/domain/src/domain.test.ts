@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import { addWatchSchema, minorUnitsFrom, updateWatchSchema } from './index.ts';
+import {
+  addWatchSchema,
+  minorUnitsFrom,
+  updateWatchSchema,
+  updateWorkspaceSchema,
+} from './index.ts';
 
 describe('minorUnitsFrom', () => {
   it.each([
@@ -31,5 +36,15 @@ describe('the watch schemas', () => {
     expect(updateWatchSchema.safeParse({ targetPrice: 0 }).success).toBe(false);
     expect(updateWatchSchema.safeParse({ targetPrice: 12.5 }).success).toBe(false);
     expect(updateWatchSchema.parse({ targetPrice: null })).toEqual({ targetPrice: null });
+  });
+});
+
+describe('the workspace schema', () => {
+  it('takes real time zones only', () => {
+    expect(updateWorkspaceSchema.parse({ timezone: 'Asia/Kolkata' })).toEqual({
+      timezone: 'Asia/Kolkata',
+    });
+    expect(updateWorkspaceSchema.safeParse({ timezone: 'Mars/Olympus' }).success).toBe(false);
+    expect(updateWorkspaceSchema.safeParse({ name: '   ' }).success).toBe(false);
   });
 });

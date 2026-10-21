@@ -1,9 +1,122 @@
-import Fastify from 'fastify';
+import type { Db } from '@pennydrop/db';
+import { updateWorkspaceSchema } from '@pennydrop/domain';
+import { fromNodeHeaders } from 'better-auth/node';
+import Fastify, { type FastifyReply, type FastifyRequest } from 'fastify';
+import { ZodError } from 'zod';
+import type { Auth } from './auth.ts';
+import type { Config } from './config.ts';
 
-export function buildApp() {
-  const app = Fastify({ logger: process.env.NODE_ENV !== 'test' });
+export interface Member {
+  userId: string;
+  name: string;
+  email: string;
+  workspaceId: string;
+  role: 'owner' | 'member';
+}
+
+declare module 'fastify' {
+  interface FastifyRequest {
+    member: Member | null;
+  }
+}
+
+export interface AppDeps {
+  db: Db;
+  auth: Auth;
+  config: Config;
+  logger?: boolean;
+}
+
+const SAFE = new Set(['GET', 'HEAD', 'OPTIONS']);
+
+export function buildApp(deps: AppDeps) {
+  const { db, auth, config } = deps;
+  const app = Fastify({ logger: deps.logger ?? process.env.NODE_ENV !== 'test' });
+  const appOrigin = new URL(config.appUrl).origin;
 
   app.get('/api/health', async () => ({ status: 'ok' }));
+
+  // Better Auth handles sign-up, sign-in, sessions and email confirmation.
+  app.route({
+    method: ['GET', 'POST'],
+    url: '/api/auth/*',
+    handler: async (request, reply) => {
+      const url = new URL(request.url, config.appUrl);
+      const response = await auth.handler(
+        new Request(url, {
+          method: request.method,
+          headers: fromNodeHeaders(request.headers),
+          body:
+            request.method === 'POST' && request.body ? JSON.stringify(request.body) : undefined,
+        }),
+      );
+      reply.status(response.status);
+      response.headers.forEach((value, key) => {
+        if (key !== 'set-cookie') reply.header(key, value);
+      });
+      const cookies = response.headers.getSetCookie();
+      if (cookies.length) reply.header('set-cookie', cookies);
+      return reply.send(response.body ? await response.text() : null);
+    },
+  });
+
+  // Everything else under /api is for signed-in people, in their own workspace.
+  app.decorateRequest('member', null);
+  app.register(async (dashboard) => {
+    dashboard.addHook('preHandler', async (request: FastifyRequest, reply: FastifyReply) => {
+      // Changes must come from the app itself: a form on another site can't use your session.
+      if (!SAFE.has(request.method) && request.headers.origin !== appOrigin) {
+        return reply.code(403).send({ error: 'Changes must come from Pennydrop itself.' });
+      }
+      const session = await auth.api.getSession({ headers: fromNodeHeaders(request.headers) });
+      if (!session) return reply.code(401).send({ error: 'Please sign in.' });
+      const membership = await db.membership.findFirst({
+        where: { userId: session.user.id },
+        orderBy: { createdAt: 'asc' },
+      });
+      if (!membership) return reply.code(403).send({ error: 'You don’t belong to a workspace.' });
+      request.member = {
+        userId: session.user.id,
+        name: session.user.name,
+        email: session.user.email,
+        workspaceId: membership.workspaceId,
+        role: membership.role,
+      };
+    });
+
+    const me = async (member: Member) => {
+      const workspace = await db.workspace.findUniqueOrThrow({ where: { id: member.workspaceId } });
+      return {
+        user: { id: member.userId, name: member.name, email: member.email },
+        workspace: {
+          id: workspace.id,
+          name: workspace.name,
+          timezone: workspace.timezone,
+          role: member.role,
+        },
+      };
+    };
+
+    dashboard.get('/api/me', async (request) => me(request.member!));
+
+    dashboard.patch('/api/workspace', async (request, reply) => {
+      const member = request.member!;
+      if (member.role !== 'owner') {
+        return reply.code(403).send({ error: 'Only the workspace’s owner can change it.' });
+      }
+      const changes = updateWorkspaceSchema.parse(request.body ?? {});
+      await db.workspace.update({ where: { id: member.workspaceId }, data: changes });
+      return me(member);
+    });
+  });
+
+  app.setErrorHandler((error, _request, reply) => {
+    if (error instanceof ZodError) {
+      return reply.code(422).send({ error: 'Some of that wasn’t right.', issues: error.issues });
+    }
+    app.log.error(error);
+    return reply.code(500).send({ error: 'Something went wrong on our side.' });
+  });
 
   return app;
 }
