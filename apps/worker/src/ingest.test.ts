@@ -137,6 +137,14 @@ describe('price history', () => {
     expect(point!.lastSeenAt.getTime()).toBe(NOW + 3_600_000);
   });
 
+  it('keeps the price seen for longer when the shop says the page hasn’t changed', async () => {
+    await run();
+    await run({ outcome: 'unchanged', amount: null, status: 304, finishedAt: NOW + 3_600_000 });
+    const [point] = await points();
+    expect(await points()).toHaveLength(1);
+    expect(point!.lastSeenAt.getTime()).toBe(NOW + 3_600_000);
+  });
+
   it('adds a row when the price moves', async () => {
     await run();
     await run({ amount: 2999, finishedAt: NOW + MINUTE });

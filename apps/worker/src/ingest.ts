@@ -142,6 +142,10 @@ export async function ingest(deps: IngestDeps, data: IngestJob): Promise<IngestR
             events.push({ kind: reading.inStock ? 'back_in_stock' : 'out_of_stock', details: {} });
           }
         }
+      } else if (outcome === 'unchanged' && last && target.pendingPrice === null) {
+        // "Not modified": the page is the one the last price was read from, so that
+        // price still holds. (Unless a big jump is still waiting for its second look.)
+        pointUpdate = { id: last.id, lastSeenAt: at };
       }
 
       // Healing: the saved selector broke, but the price was found another way.
