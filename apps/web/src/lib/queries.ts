@@ -1,4 +1,4 @@
-import type { CheckSummary, Me, WatchDetail, WatchSummary } from '@pennydrop/domain';
+import type { CheckSummary, Me, PreviewView, WatchDetail, WatchSummary } from '@pennydrop/domain';
 import { QueryCache, QueryClient, useQuery } from '@tanstack/react-query';
 import { ApiError, api } from './api.ts';
 
@@ -7,6 +7,7 @@ export const keys = {
   watches: ['watches'] as const,
   watch: (id: string) => ['watches', id] as const,
   checks: (id: string) => ['watches', id, 'checks'] as const,
+  preview: (id: string) => ['previews', id] as const,
 };
 
 export function createQueryClient() {
@@ -67,5 +68,19 @@ export function useChecks(id: string) {
         (data) => data.checks,
       ),
     refetchInterval: 30_000,
+  });
+}
+
+/** A preview, asked about twice a second until it's finished. */
+export function usePreview(id: string) {
+  return useQuery({
+    queryKey: keys.preview(id),
+    queryFn: ({ signal }) => api<PreviewView>(`/api/previews/${id}`, { signal }),
+    refetchInterval: (query) => {
+      const status = query.state.data?.status;
+      return status === 'done' || status === 'failed' ? false : 500;
+    },
+    refetchOnWindowFocus: false,
+    staleTime: Number.POSITIVE_INFINITY,
   });
 }

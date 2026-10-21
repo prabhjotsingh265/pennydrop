@@ -1,4 +1,5 @@
 import { createBrowserRouter, Navigate } from 'react-router';
+import { AddPage } from './app/add/AddPage.tsx';
 import { RequireAuth } from './app/RequireAuth.tsx';
 import { Shell } from './app/Shell.tsx';
 import { WatchlistPage } from './app/WatchlistPage.tsx';
@@ -20,7 +21,10 @@ export const router = createBrowserRouter([
         <Shell />
       </RequireAuth>
     ),
-    children: [{ index: true, element: <WatchlistPage /> }],
+    children: [
+      { index: true, element: <WatchlistPage /> },
+      { path: 'add', element: <AddPage /> },
+    ],
   },
   { path: '/prototype', element: <Prototype /> },
   { path: '*', element: <Navigate to="/app" replace /> },

@@ -1,5 +1,5 @@
 import type { Db } from '@pennydrop/db';
-import { previewSchema } from '@pennydrop/domain';
+import { previewSchema, type PreviewView } from '@pennydrop/domain';
 import type { FastifyInstance, FastifyReply } from 'fastify';
 import { z } from 'zod';
 import type { Previews } from './previews.ts';
@@ -67,7 +67,7 @@ export async function previewRoutes(app: FastifyInstance, deps: PreviewRouteDeps
     if (!state) return notFound(reply);
     // The selectors stay on the server: a save names a choice by its number, never a selector.
     const result = state.result && { ...state.result, selectors: undefined };
-    return { status: state.status, step: state.step, result };
+    return { status: state.status, step: state.step, result } satisfies PreviewView;
   });
 
   app.get('/api/previews/:id/screenshot', async (request, reply) => {

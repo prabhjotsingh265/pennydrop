@@ -296,6 +296,9 @@ importers:
 
   packages/queue:
     dependencies:
+      '@pennydrop/domain':
+        specifier: workspace:*
+        version: link:../domain
       bullmq:
         specifier: 5.81.5
         version: 5.81.5

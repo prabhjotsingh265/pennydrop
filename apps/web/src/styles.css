@@ -151,3 +151,30 @@
     transparent 1px 6px
   );
 }
+
+/* The add page's stand-in for a page being read: a band of light sweeping down. */
+.scan {
+  background: linear-gradient(
+    to bottom,
+    transparent,
+    color-mix(in oklab, var(--copper) 22%, transparent),
+    transparent
+  );
+  animation: scan 1.8s cubic-bezier(0.45, 0, 0.55, 1) infinite;
+}
+
+@keyframes scan {
+  from {
+    top: -3rem;
+  }
+  to {
+    top: 100%;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .scan {
+    animation: none;
+    top: 40%;
+  }
+}

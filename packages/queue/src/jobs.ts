@@ -1,3 +1,7 @@
+import type { PreviewChoice, PreviewShown } from '@pennydrop/domain';
+
+export type { PreviewChoice };
+
 export const QUEUES = {
   /** Every 15 s: due products from PostgreSQL into the fetch queues. */
   dispatch: 'dispatch',
@@ -129,40 +133,11 @@ export interface PreviewJob {
   maxInFlight: number;
 }
 
-/** A price on the screenshot that someone can click. */
-export interface PreviewChoice {
-  text: string;
-  amount: number;
-  currency: string | null;
-  /** Where it sits on the screenshot, in pixels. */
-  x: number;
-  y: number;
-  width: number;
-  height: number;
-  /** Crossed out: a "was" price. */
-  struck: boolean;
-  /** The automatic pick. */
-  best: boolean;
-}
-
-export interface PreviewResult {
+/** What the browser fetcher sends back: what the person sees, plus what only the API may read. */
+export interface PreviewResult extends PreviewShown {
   outcome: CheckOutcome;
-  /** In words, for the person waiting. */
-  detail: string;
-  /** Where the page ended up, after any redirects. */
-  url: string;
-  title: string | null;
-  amount: number | null;
-  currency: string | null;
-  was: number | null;
-  inStock: boolean | null;
-  choices: PreviewChoice[];
   /** Selectors for the choices, in the same order. Kept back from the browser: the API reads them when a choice is saved. */
   selectors: string[];
-  /** The page as served already holds the price, so checks can skip the browser. Null when there's no price to compare. */
-  plainHtmlWorks: boolean | null;
-  screenshot: { width: number; height: number } | null;
-  timings: Record<string, number>;
 }
 
 /** Previews, and their screenshots, are kept this long: time enough to pick a price and save. */
