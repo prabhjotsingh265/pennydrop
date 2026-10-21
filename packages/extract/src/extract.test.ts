@@ -149,3 +149,15 @@ describe('with a browser’s view of the page', () => {
     );
   });
 });
+
+describe('was prices by their wording', () => {
+  it.each(['was £37.99', 'RRP £37.99', 'Originally £37.99', 'Compare at £37.99'])(
+    'reads "%s" as the old price',
+    (old) => {
+      const html = page(
+        `<main><h1>Mug</h1><div class="css-a8k2x9">£31.99</div><div class="css-b9l3y0">${old}</div><button>Add to basket</button></main>`,
+      );
+      expect(extract({ html })).toMatchObject({ amount: 3199, was: 3799 });
+    },
+  );
+});

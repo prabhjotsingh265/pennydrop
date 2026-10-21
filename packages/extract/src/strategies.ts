@@ -208,6 +208,10 @@ export function fromSelector(
   ]);
 }
 
+// "was £37.99", "RRP £40", "originally £50": an old price, by its wording alone.
+const WAS_WORDING =
+  /^\s*(was|now was|rrp|msrp|before|originally|previously|compare at|list price|regular price)\b/i;
+
 const SMALL_PRINT =
   /\b(delivery|shipping|postage|over|save|off|per|month|monthly|from|finance|deposit|tax|vat|voucher|coupon)\b/i;
 
@@ -230,7 +234,7 @@ export function fromHeuristics(
   for (const { text, element } of textNodes(page)) {
     const box = layout.get(pathOf(element).join('.'));
     for (const price of findPrices(text, hints)) {
-      if (isWasPrice(element) || box?.struck) {
+      if (isWasPrice(element) || box?.struck || WAS_WORDING.test(text)) {
         was.push({ amount: price.amount, element });
         continue;
       }
