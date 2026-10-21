@@ -76,3 +76,27 @@ jobs:
 
       - name: Build
         run: pnpm build
+
+  # The browser fetcher's tests, in the same Chromium image the fetcher uses.
+  browser:
+    runs-on: ubuntu-latest
+    container:
+      image: mcr.microsoft.com/playwright:v1.63.0-noble
+
+    env:
+      COREPACK_ENABLE_DOWNLOAD_PROMPT: 0
+      TURBO_TELEMETRY_DISABLED: 1
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Install packages
+        run: |
+          corepack enable
+          pnpm install --frozen-lockfile
+
+      - name: Browser tests
+        run: pnpm --filter @pennydrop/fetcher test:browser
