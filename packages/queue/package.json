@@ -1,0 +1,19 @@
+{
+  "name": "@pennydrop/queue",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "bullmq": "5.81.5",
+    "ioredis": "5.11.1"
+  },
+  "devDependencies": {
+    "vitest": "4.1.12"
+  }
+}
