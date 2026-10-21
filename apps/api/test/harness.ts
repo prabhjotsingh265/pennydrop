@@ -1,4 +1,6 @@
 import { resetDatabase, testDb } from '@pennydrop/db/testing';
+import { vi } from 'vitest';
+import type { Lookup } from '../src/addresses.ts';
 import { buildApp } from '../src/app.ts';
 import { createAuth } from '../src/auth.ts';
 import type { Config } from '../src/config.ts';
@@ -14,9 +16,14 @@ export function harness() {
     appUrl: APP_URL,
     authSecret: 'test-secret-that-is-long-enough-0123456789',
     mail: { from: 'Pennydrop <hello@pennydrop.test>' },
+    localShops: false,
   };
+  const wake = vi.fn(async () => {});
+  // No real DNS in tests: names resolve to a public documentation address unless told otherwise.
+  const resolved = new Map<string, string[]>();
+  const lookup: Lookup = async (host) => resolved.get(host) ?? ['93.184.215.14'];
   const auth = createAuth({ db, mail: async (email) => void sent.push(email), config });
-  const app = buildApp({ db, auth, config, logger: false });
+  const app = buildApp({ db, auth, config, wake, lookup, logger: false });
 
   const cookiesFrom = (header: string | string[] | undefined) =>
     ([] as string[])
@@ -38,5 +45,5 @@ export function harness() {
     return cookiesFrom(verified.headers['set-cookie']);
   }
 
-  return { app, db, sent, signIn, cookiesFrom, reset: () => resetDatabase(db) };
+  return { app, db, sent, wake, resolved, signIn, cookiesFrom, reset: () => resetDatabase(db) };
 }

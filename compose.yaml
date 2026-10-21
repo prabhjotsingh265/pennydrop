@@ -35,6 +35,8 @@ services:
   api:
     <<: *node
     command: ['pnpm', '--filter', '@pennydrop/api', 'dev']
+    environment:
+      LOCAL_SHOP_HOST: shop
     networks: [data, default]
     ports:
       - '${FORWARD_API_PORT:-3001}:3001'

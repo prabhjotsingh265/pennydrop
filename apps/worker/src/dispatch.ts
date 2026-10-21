@@ -1,4 +1,4 @@
-import type { Db } from '@pennydrop/db';
+import { GONE_FOR_GOOD_STREAK, type Db } from '@pennydrop/db';
 import { checkJobId, type FetchJob } from '@pennydrop/queue';
 import type { Queue } from 'bullmq';
 import { gapFor, nextDue, stretch } from './schedule.ts';
@@ -6,8 +6,6 @@ import { gapFor, nextDue, stretch } from './schedule.ts';
 const ROBOTS_FRESH_MS = 24 * 3_600_000;
 /** Blocked and gone pages are only probed once a day. */
 const PROBE_INTERVAL_S = 86_400;
-/** Three failures make a page gone; a week of daily probes after that, and it's left alone. */
-const GONE_FOR_GOOD_STREAK = 10;
 
 interface DueRow {
   id: string;

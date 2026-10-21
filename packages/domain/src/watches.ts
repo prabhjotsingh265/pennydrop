@@ -16,13 +16,6 @@ export const addWatchSchema = z.strictObject({
   label: z.string().trim().max(120).optional(),
   targetPrice: money.optional(),
   intervalSeconds: intervalSchema.default(DEFAULT_INTERVAL),
-  /** The element someone clicked on the preview's screenshot, when the automatic pick was wrong. */
-  picked: z
-    .strictObject({
-      selector: z.string().min(1).max(500),
-      attribute: z.string().max(50).optional(),
-    })
-    .optional(),
 });
 export type AddWatchInput = z.input<typeof addWatchSchema>;
 
@@ -58,4 +51,38 @@ export interface WatchSummary {
   lastSuccessAt: string | null;
   /** Change points over the last 30 days, oldest first: each price holds until the next. */
   history: { t: string; price: number | null; inStock: boolean }[];
+}
+
+/** Something worth showing on a product's timeline. Site-wide ones (a redesign, a breaker) touch every product there. */
+export interface WatchEvent {
+  id: string;
+  kind: string;
+  at: string;
+  details: Record<string, unknown>;
+  siteWide: boolean;
+}
+
+export interface WatchDetail {
+  /** With its whole history, not just the last 30 days. */
+  watch: WatchSummary;
+  events: WatchEvent[];
+}
+
+/** One check of a product page, for the check log and its waterfall. */
+export interface CheckSummary {
+  id: string;
+  reason: string;
+  mode: 'http' | 'browser' | null;
+  outcome: string;
+  startedAt: string;
+  finishedAt: string;
+  httpStatus: number | null;
+  /** Milliseconds per step: robots, http, browser, total. */
+  timings: Record<string, number> | null;
+  strategy: string | null;
+  confidence: number | null;
+  price: number | null;
+  currency: string | null;
+  inStock: boolean | null;
+  detail: string | null;
 }

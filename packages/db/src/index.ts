@@ -11,4 +11,4 @@ export function createDb(url = process.env.DATABASE_URL): Db {
   return new PrismaClient({ adapter: new PrismaPg({ connectionString: url }) });
 }
 
-export { syncTarget } from './watches.ts';
+export { GONE_FOR_GOOD_STREAK, syncTarget } from './watches.ts';

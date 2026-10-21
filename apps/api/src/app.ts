@@ -3,8 +3,10 @@ import { updateWorkspaceSchema } from '@pennydrop/domain';
 import { fromNodeHeaders } from 'better-auth/node';
 import Fastify, { type FastifyReply, type FastifyRequest } from 'fastify';
 import { ZodError } from 'zod';
+import { systemLookup, type Lookup } from './addresses.ts';
 import type { Auth } from './auth.ts';
 import type { Config } from './config.ts';
+import { watchRoutes } from './watches.ts';
 
 export interface Member {
   userId: string;
@@ -24,6 +26,10 @@ export interface AppDeps {
   db: Db;
   auth: Auth;
   config: Config;
+  /** Asks the dispatcher to run now, so a new or "check now" product isn't left for the next tick. */
+  wake: () => Promise<void>;
+  lookup?: Lookup;
+  now?: () => number;
   logger?: boolean;
 }
 
@@ -107,6 +113,14 @@ export function buildApp(deps: AppDeps) {
       const changes = updateWorkspaceSchema.parse(request.body ?? {});
       await db.workspace.update({ where: { id: member.workspaceId }, data: changes });
       return me(member);
+    });
+
+    await watchRoutes(dashboard, {
+      db,
+      wake: deps.wake,
+      localShops: config.localShops,
+      lookup: deps.lookup ?? systemLookup,
+      now: deps.now,
     });
   });
 

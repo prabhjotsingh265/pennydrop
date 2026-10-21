@@ -34,6 +34,18 @@ describe('syncTarget', () => {
     );
   });
 
+  it('brings the next check forward when someone wants it checked more often', async () => {
+    const { target, a } = await setup();
+    const tomorrow = new Date(Date.now() + 20 * 3_600_000);
+    await db.target.update({ where: { id: target.id }, data: { nextCheckAt: tomorrow } });
+    await db.watch.create({
+      data: { workspaceId: a.id, targetId: target.id, intervalSeconds: 3600 },
+    });
+    await syncTarget(db, target.id);
+    const next = (await db.target.findUniqueOrThrow({ where: { id: target.id } })).nextCheckAt;
+    expect(next.getTime()).toBeLessThanOrEqual(Date.now() + 3_600_000);
+  });
+
   it('pauses a page nobody is watching, and wakes it when someone does', async () => {
     const { target, a } = await setup();
     const watch = await db.watch.create({

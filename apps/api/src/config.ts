@@ -3,6 +3,8 @@ export interface Config {
   appUrl: string;
   authSecret: string;
   mail: { from: string; mailpitUrl?: string; resendKey?: string };
+  /** Development: the practice shops at *.localhost may be added. */
+  localShops: boolean;
 }
 
 export function configFromEnv(env: NodeJS.ProcessEnv = process.env): Config {
@@ -19,5 +21,6 @@ export function configFromEnv(env: NodeJS.ProcessEnv = process.env): Config {
       mailpitUrl: env.MAILPIT_URL || undefined,
       resendKey: env.RESEND_API_KEY || undefined,
     },
+    localShops: Boolean(env.LOCAL_SHOP_HOST),
   };
 }
