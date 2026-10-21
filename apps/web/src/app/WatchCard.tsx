@@ -7,7 +7,7 @@ import { useTheme } from '../lib/theme.ts';
 import { sparkDomain } from '../lib/chart.ts';
 import { ago } from '../lib/time.ts';
 import { patina, proximityTint } from '../lib/tint.ts';
-import { distance, trouble, waiting } from '../lib/watchlist.ts';
+import { distance, distanceWords, trouble, waiting } from '../lib/watchlist.ts';
 
 /** One product: its price, how close it is to your target, and its recent history. */
 export function WatchCard({ watch, now }: { watch: WatchSummary; now: number }) {
@@ -74,13 +74,11 @@ export function WatchCard({ watch, now }: { watch: WatchSummary; now: number }) 
             {above !== null && (
               <>
                 <br />
-                {above > 0 ? (
-                  <>{formatMoney(above, currency)} above</>
-                ) : (
-                  <span className="font-semibold text-copper-deep">
-                    ↓ {formatMoney(-above, currency)} under
-                  </span>
-                )}
+                <span
+                  className={away !== null && above <= 0 ? 'font-semibold text-copper-deep' : ''}
+                >
+                  {distanceWords(above, currency).text}
+                </span>
               </>
             )}
           </div>

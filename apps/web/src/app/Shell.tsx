@@ -1,5 +1,5 @@
 import { useQueryClient } from '@tanstack/react-query';
-import { LogOut, Moon, Plus, Sun } from 'lucide-react';
+import { LogOut, Moon, Plus, Settings, Sun } from 'lucide-react';
 import { Link, NavLink, Outlet, useNavigate } from 'react-router';
 import { BrandMark } from '../components/BrandMark.tsx';
 import { authClient } from '../lib/auth-client.ts';
@@ -8,6 +8,7 @@ import { useLiveUpdates } from '../lib/live.ts';
 import { useMe } from '../lib/queries.ts';
 import { useTheme } from '../lib/theme.ts';
 import { buttonClass } from '../ui/Button.tsx';
+import { ZoneNudge } from './ZoneNudge.tsx';
 
 const navClass = ({ isActive }: { isActive: boolean }) =>
   `rounded-[8px] px-3 py-2 transition ${isActive ? 'bg-surface font-medium text-ink' : 'text-ink-2 hover:text-ink'}`;
@@ -38,6 +39,12 @@ function AccountMenu() {
           <div className="truncate text-[13px] text-ink-2">{me.user.email}</div>
           <div className="tabular mt-1 text-[11px] text-ink-2">{me.workspace.name}</div>
         </div>
+        <Link
+          to="/app/settings"
+          className="flex w-full items-center gap-2 rounded-[8px] px-3 py-2 text-left text-sm hover:bg-surface"
+        >
+          <Settings size={16} aria-hidden="true" /> Settings
+        </Link>
         <button
           type="button"
           onClick={() => void signOut()}
@@ -128,6 +135,7 @@ export function Shell() {
           </div>
         </div>
       </header>
+      <ZoneNudge />
       <main className="mx-auto max-w-6xl px-4 py-8 sm:px-6">
         <Outlet />
       </main>

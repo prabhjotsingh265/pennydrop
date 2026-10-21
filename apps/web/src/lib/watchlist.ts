@@ -1,4 +1,5 @@
 import type { WatchSummary } from '@pennydrop/domain';
+import { formatMoney } from './money.ts';
 import { distanceFromTarget } from './tint.ts';
 
 /** How far above its target a product is, as a fraction of the target. Null without both. */
@@ -40,4 +41,21 @@ export function trouble(watch: WatchSummary): string | null {
 /** What the card shows in place of a price before one has been read. */
 export function waiting(watch: WatchSummary): string {
   return watch.lastCheckedAt ? 'No price read yet' : 'First check on its way';
+}
+
+/**
+ * How far a price is from its target, in words: "£3.20 above", "at target",
+ * "↓ £0.01 under". `reached` says whether to show it in copper.
+ */
+export function distanceWords(
+  above: number,
+  currency: string,
+  target = 'target',
+): { text: string; reached: boolean } {
+  if (above > 0) return { text: `${formatMoney(above, currency)} above`, reached: false };
+  if (above === 0) return { text: `at ${target}`, reached: true };
+  return {
+    text: `↓ ${formatMoney(-above, currency)} under${target === 'target' ? '' : ` ${target}`}`,
+    reached: true,
+  };
 }

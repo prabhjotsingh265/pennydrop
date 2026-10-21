@@ -20,7 +20,7 @@ import { formatMoney } from '../../lib/money.ts';
 import { useChecks, useMe, useWatch, useWatchActions } from '../../lib/queries.ts';
 import { ago, dateWords, every, targetStep, useNow } from '../../lib/time.ts';
 import { patina } from '../../lib/tint.ts';
-import { trouble, waiting } from '../../lib/watchlist.ts';
+import { distanceWords, trouble, waiting } from '../../lib/watchlist.ts';
 import { Button, buttonClass } from '../../ui/Button.tsx';
 import { Notice } from '../../ui/Notice.tsx';
 import { CheckLog } from './CheckLog.tsx';
@@ -179,10 +179,10 @@ function Product({
               <div>target {formatMoney(target, currency)}</div>
               {above !== null &&
                 (above > 0 ? (
-                  <div className="text-ink-2">{formatMoney(above, currency)} above</div>
+                  <div className="text-ink-2">{distanceWords(above, currency).text}</div>
                 ) : (
                   <div className="font-semibold text-copper-deep">
-                    ↓ {formatMoney(-above, currency)} under your target
+                    {distanceWords(above, currency, 'your target').text}
                   </div>
                 ))}
             </>

@@ -1,6 +1,6 @@
 import type { WatchSummary } from '@pennydrop/domain';
 import { describe, expect, it } from 'vitest';
-import { byCloseness, reached, trouble, waiting } from './watchlist.ts';
+import { byCloseness, distanceWords, reached, trouble, waiting } from './watchlist.ts';
 
 const watch = (label: string, price: number | null, targetPrice: number | null): WatchSummary => ({
   id: label,
@@ -55,5 +55,14 @@ describe('what a card says', () => {
     expect(waiting({ ...watch('a', null, null), lastCheckedAt: '2026-10-21T08:00:00Z' })).toBe(
       'No price read yet',
     );
+  });
+});
+
+describe('distanceWords', () => {
+  it('says above, at or under, never "-£0.00 under"', () => {
+    expect(distanceWords(320, 'GBP')).toEqual({ text: '£3.20 above', reached: false });
+    expect(distanceWords(0, 'GBP')).toEqual({ text: 'at target', reached: true });
+    expect(distanceWords(-1, 'GBP')).toEqual({ text: '↓ £0.01 under', reached: true });
+    expect(distanceWords(-1, 'GBP', 'your target').text).toBe('↓ £0.01 under your target');
   });
 });
