@@ -1,12 +1,21 @@
 {
   "$schema": "https://turborepo.com/schema.json",
+  "globalPassThroughEnv": ["DATABASE_URL", "REDIS_URL"],
   "tasks": {
+    "generate": {
+      "inputs": ["prisma/**", "prisma.config.ts"],
+      "outputs": ["src/generated/**"]
+    },
     "build": {
-      "dependsOn": ["^build"],
+      "dependsOn": ["generate", "^generate", "^build"],
       "outputs": ["dist/**"]
     },
-    "typecheck": {},
-    "test": {},
+    "typecheck": {
+      "dependsOn": ["generate", "^generate"]
+    },
+    "test": {
+      "dependsOn": ["generate", "^generate"]
+    },
     "dev": {
       "cache": false,
       "persistent": true

@@ -1,0 +1,243 @@
+// Pennydrop's database. Every moment is UTC (timestamptz); money is whole
+// minor units (pence, cents, paise) in a bigint, with an ISO 4217 code beside it.
+
+generator client {
+  provider            = "prisma-client"
+  output              = "../src/generated"
+  moduleFormat        = "esm"
+  importFileExtension = "ts"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum SitePolicy {
+  allowed
+  api_only
+  blocked
+}
+
+enum RobotsStatus {
+  ok
+  missing
+  unreachable
+}
+
+enum BreakerState {
+  closed
+  open
+  half_open
+}
+
+enum TargetStatus {
+  active
+  needs_attention
+  blocked
+  gone
+  paused
+}
+
+enum FetchMode {
+  http
+  browser
+}
+
+enum CheckReason {
+  scheduled
+  manual
+  preview
+  confirm
+  replay
+}
+
+enum CheckOutcome {
+  ok
+  unchanged
+  suspicious
+  price_not_found
+  blocked
+  rate_limited
+  http_error
+  gone
+  robots_disallowed
+  timeout
+  network_error
+  too_large
+  not_html
+  blocked_address
+  skipped_breaker_open
+}
+
+enum RecipeSource {
+  user
+  auto
+  healed
+}
+
+enum EventKind {
+  layout_changed
+  selector_healed
+  needs_browser
+  breaker_opened
+  breaker_closed
+  blocked
+  robots_disallowed
+  suspicious_price
+  out_of_stock
+  back_in_stock
+  gone
+}
+
+/// A shop's hostname. Politeness, robots.txt and the breaker all work per site.
+model Site {
+  id               String       @id @default(uuid(7)) @db.Uuid
+  host             String       @unique
+  /// The registrable domain: "example.co.uk" for "shop.example.co.uk".
+  registrable      String
+  policy           SitePolicy   @default(allowed)
+  /// The hosted demo only checks sites marked here.
+  demoAllowed      Boolean      @default(false) @map("demo_allowed")
+  robotsTxt        String?      @map("robots_txt")
+  robotsStatus     RobotsStatus? @map("robots_status")
+  robotsFetchedAt  DateTime?    @map("robots_fetched_at") @db.Timestamptz
+  /// Seconds, from robots.txt.
+  crawlDelay       Int?         @map("crawl_delay")
+  /// At least this long between two requests to the site.
+  minGapMs         Int          @default(10000) @map("min_gap_ms")
+  maxInFlight      Int          @default(1) @map("max_in_flight")
+  needsBrowser     Boolean      @default(false) @map("needs_browser")
+  breakerState     BreakerState @default(closed) @map("breaker_state")
+  breakerOpenUntil DateTime?    @map("breaker_open_until") @db.Timestamptz
+  createdAt        DateTime     @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt        DateTime     @updatedAt @map("updated_at") @db.Timestamptz
+
+  targets Target[]
+  recipes Recipe[]
+  events  Event[]
+
+  @@map("sites")
+}
+
+/// A saved way to read a site's price. Healing retires one and writes another.
+model Recipe {
+  id          String       @id @default(uuid(7)) @db.Uuid
+  siteId      String       @map("site_id") @db.Uuid
+  selector    String
+  attribute   String?
+  pattern     String?
+  source      RecipeSource
+  activeFrom  DateTime     @default(now()) @map("active_from") @db.Timestamptz
+  retiredAt   DateTime?    @map("retired_at") @db.Timestamptz
+  hits        Int          @default(0)
+  misses      Int          @default(0)
+
+  site Site @relation(fields: [siteId], references: [id], onDelete: Cascade)
+
+  @@index([siteId, retiredAt])
+  @@map("recipes")
+}
+
+/// A product page, shared by everyone who watches it and checked once for all of them.
+model Target {
+  id              String       @id @default(uuid(7)) @db.Uuid
+  siteId          String       @map("site_id") @db.Uuid
+  url             String
+  canonicalUrl    String       @unique @map("canonical_url")
+  status          TargetStatus @default(active)
+  intervalSeconds Int          @default(21600) @map("interval_seconds")
+  nextCheckAt     DateTime     @default(now()) @map("next_check_at") @db.Timestamptz
+  lastCheckedAt   DateTime?    @map("last_checked_at") @db.Timestamptz
+  lastSuccessAt   DateTime?    @map("last_success_at") @db.Timestamptz
+  /// Failures in a row: drives retries, and "gone" or "blocked" after three.
+  failureStreak   Int          @default(0) @map("failure_streak")
+  etag            String?
+  lastModified    String?      @map("last_modified")
+  title           String?
+  currentPrice    BigInt?      @map("current_price")
+  currency        String?      @db.Char(3)
+  inStock         Boolean?     @map("in_stock")
+  /// A big jump waiting for a second check to confirm it.
+  pendingPrice    BigInt?      @map("pending_price")
+  pendingSince    DateTime?    @map("pending_since") @db.Timestamptz
+  createdAt       DateTime     @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt       DateTime     @updatedAt @map("updated_at") @db.Timestamptz
+
+  site        Site         @relation(fields: [siteId], references: [id], onDelete: Cascade)
+  checks      Check[]
+  pricePoints PricePoint[]
+  events      Event[]
+
+  @@index([status, nextCheckAt])
+  @@index([siteId])
+  @@map("targets")
+}
+
+/// Every check, successful or not. Kept for 30 days, failures for 90.
+model Check {
+  id           String       @id @default(uuid(7)) @db.Uuid
+  targetId     String       @map("target_id") @db.Uuid
+  /// The queue job's id: a check retried after a crash is written once.
+  jobId        String       @unique @map("job_id")
+  reason       CheckReason
+  mode         FetchMode?
+  scheduledFor DateTime     @map("scheduled_for") @db.Timestamptz
+  startedAt    DateTime     @map("started_at") @db.Timestamptz
+  finishedAt   DateTime     @map("finished_at") @db.Timestamptz
+  outcome      CheckOutcome
+  httpStatus   Int?         @map("http_status")
+  /// Milliseconds per step, for the waterfall.
+  timings      Json?
+  strategy     String?
+  confidence   Float?
+  price        BigInt?
+  wasPrice     BigInt?      @map("was_price")
+  currency     String?      @db.Char(3)
+  inStock      Boolean?     @map("in_stock")
+  detail       String?
+  /// Each strategy's reading, for "show me why".
+  readings     Json?
+
+  target Target @relation(fields: [targetId], references: [id], onDelete: Cascade)
+
+  @@index([targetId, startedAt(sort: Desc)])
+  @@index([startedAt])
+  @@map("checks")
+}
+
+/// Price history, stored only when something changes: an unchanged check moves lastSeenAt on.
+model PricePoint {
+  id           String   @id @default(uuid(7)) @db.Uuid
+  targetId     String   @map("target_id") @db.Uuid
+  firstSeenAt  DateTime @map("first_seen_at") @db.Timestamptz
+  lastSeenAt   DateTime @map("last_seen_at") @db.Timestamptz
+  price        BigInt?
+  wasPrice     BigInt?  @map("was_price")
+  currency     String   @db.Char(3)
+  inStock      Boolean  @map("in_stock")
+  firstCheckId String   @map("first_check_id") @db.Uuid
+  /// Built by replaying the practice shop's past, not observed live.
+  replayed     Boolean  @default(false)
+
+  target Target @relation(fields: [targetId], references: [id], onDelete: Cascade)
+
+  @@index([targetId, firstSeenAt(sort: Desc)])
+  @@map("price_points")
+}
+
+/// Things worth showing on a timeline: redesigns, heals, breakers, stock changes.
+model Event {
+  id       String    @id @default(uuid(7)) @db.Uuid
+  siteId   String?   @map("site_id") @db.Uuid
+  targetId String?   @map("target_id") @db.Uuid
+  kind     EventKind
+  details  Json      @default("{}")
+  at       DateTime  @default(now()) @db.Timestamptz
+
+  site   Site?   @relation(fields: [siteId], references: [id], onDelete: Cascade)
+  target Target? @relation(fields: [targetId], references: [id], onDelete: Cascade)
+
+  @@index([targetId, at])
+  @@index([siteId, at])
+  @@map("events")
+}

@@ -4,4 +4,6 @@ packages:
 
 # pnpm 10 runs no install scripts unless a package is listed here.
 onlyBuiltDependencies:
+  - '@prisma/engines'
   - esbuild
+  - prisma
