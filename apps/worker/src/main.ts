@@ -3,6 +3,7 @@ import { QUEUES, redisConnection, type FetchJob, type IngestJob } from '@pennydr
 import { Queue, Worker } from 'bullmq';
 import { dispatch, type DispatchResult } from './dispatch.ts';
 import { ingest } from './ingest.ts';
+import { pruneChecks } from './maintenance.ts';
 
 // The only process with the database: it decides what to check and records what was found.
 const db = createDb();
@@ -12,6 +13,7 @@ const queues = {
   browser: new Queue<FetchJob>(QUEUES.fetchBrowser, { connection }),
 };
 const ticks = new Queue(QUEUES.dispatch, { connection });
+const chores = new Queue(QUEUES.maintenance, { connection });
 
 // A job scheduler runs the tick once every 15 s, however many of these processes run.
 await ticks.upsertJobScheduler(
@@ -37,6 +39,20 @@ dispatcher.on('completed', (_job, result) => {
 });
 dispatcher.on('failed', (_job, error) => console.error('dispatch failed:', error.message));
 
+// Nightly at 03:00 UTC: trim the check log. Price history is kept for good.
+await chores.upsertJobScheduler(
+  'prune-checks',
+  { pattern: '0 3 * * *', tz: 'UTC' },
+  { name: 'prune-checks' },
+);
+const maintainer = new Worker(QUEUES.maintenance, async () => ({ pruned: await pruneChecks(db) }), {
+  connection,
+  concurrency: 1,
+});
+maintainer.on('completed', (_job, result) =>
+  console.log(`maintenance: pruned ${result.pruned} old checks`),
+);
+
 const ingester = new Worker<IngestJob>(QUEUES.ingest, (job) => ingest({ db, queues }, job.data), {
   connection,
   concurrency: 10,
@@ -48,8 +64,13 @@ console.log('Worker running: dispatching every 15 s, recording results.');
 for (const signal of ['SIGINT', 'SIGTERM'] as const) {
   process.once(signal, () => {
     void (async () => {
-      await Promise.all([dispatcher.close(), ingester.close()]);
-      await Promise.all([ticks.close(), queues.http.close(), queues.browser.close()]);
+      await Promise.all([dispatcher.close(), ingester.close(), maintainer.close()]);
+      await Promise.all([
+        ticks.close(),
+        chores.close(),
+        queues.http.close(),
+        queues.browser.close(),
+      ]);
       await db.$disconnect();
       await connection.quit();
       process.exit(0);
