@@ -44,16 +44,14 @@ export function createQueryClient() {
 }
 
 /** Who's signed in: null when nobody is. */
-export function useMe() {
-  return useQuery({
-    queryKey: keys.me,
-    queryFn: () =>
-      api<Me>('/api/me').catch((error: unknown) => {
-        if (error instanceof ApiError && error.status === 401) return null;
-        throw error;
-      }),
-    staleTime: 60_000,
+export const fetchMe = () =>
+  api<Me>('/api/me').catch((error: unknown) => {
+    if (error instanceof ApiError && error.status === 401) return null;
+    throw error;
   });
+
+export function useMe() {
+  return useQuery({ queryKey: keys.me, queryFn: fetchMe, staleTime: 60_000 });
 }
 
 export function useWatches() {

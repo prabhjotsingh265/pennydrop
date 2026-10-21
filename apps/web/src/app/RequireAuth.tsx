@@ -7,7 +7,10 @@ import { Button } from '../ui/Button.tsx';
 export function RequireAuth({ children }: { children: ReactNode }) {
   const me = useMe();
   const location = useLocation();
-  if (me.isPending) return <div className="min-h-dvh" aria-busy="true" />;
+  // Still finding out (perhaps after an earlier "nobody"): wait rather than send them away.
+  if (me.isPending || (!me.data && me.isFetching)) {
+    return <div className="min-h-dvh" aria-busy="true" />;
+  }
   if (me.isError) {
     return (
       <div className="grid min-h-dvh place-items-center p-6 text-center">

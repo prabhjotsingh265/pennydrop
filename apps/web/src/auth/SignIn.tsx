@@ -5,7 +5,7 @@ import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { Link, useNavigate, useSearchParams } from 'react-router';
 import { authClient } from '../lib/auth-client.ts';
-import { keys } from '../lib/queries.ts';
+import { fetchMe, keys } from '../lib/queries.ts';
 import { safeNext } from '../lib/time.ts';
 import { Button } from '../ui/Button.tsx';
 import { Field } from '../ui/Field.tsx';
@@ -34,7 +34,9 @@ export function SignIn() {
       );
       return;
     }
-    await queryClient.invalidateQueries({ queryKey: keys.me });
+    // Learn who's signed in before going on: the dashboard's guard still remembers
+    // "nobody" from before, and would send them straight back here.
+    await queryClient.fetchQuery({ queryKey: keys.me, queryFn: fetchMe, staleTime: 0 });
     navigate(safeNext(params.get('next')), { replace: true });
   });
 
