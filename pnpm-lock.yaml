@@ -60,6 +60,12 @@ importers:
       '@pennydrop/fetch':
         specifier: workspace:*
         version: link:../../packages/fetch
+      '@pennydrop/queue':
+        specifier: workspace:*
+        version: link:../../packages/queue
+      bullmq:
+        specifier: 5.81.5
+        version: 5.81.5
       playwright:
         specifier: 1.63.0
         version: 1.63.0
@@ -67,6 +73,12 @@ importers:
       '@pennydrop/shop':
         specifier: workspace:*
         version: link:../shop
+      tsup:
+        specifier: 8.5.1
+        version: 8.5.1(jiti@2.7.0)(postcss@8.5.31)(tsx@4.23.15)(typescript@6.0.3)
+      tsx:
+        specifier: 4.23.15
+        version: 4.23.15
       vitest:
         specifier: 4.1.12
         version: 4.1.12(@types/node@24.19.2)(vite@7.3.7(@types/node@24.19.2)(jiti@2.7.0)(lightningcss@1.32.0)(tsx@4.23.15))

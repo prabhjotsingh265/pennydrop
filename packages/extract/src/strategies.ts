@@ -40,9 +40,9 @@ export interface StrategyResult {
 export interface Recipe {
   selector: string;
   /** Read this attribute instead of the element's text. */
-  attribute?: string;
+  attribute?: string | null;
   /** A regular expression whose first group is the price. */
-  pattern?: string;
+  pattern?: string | null;
 }
 
 const result = (strategy: Strategy, candidates: Candidate[]): StrategyResult => ({

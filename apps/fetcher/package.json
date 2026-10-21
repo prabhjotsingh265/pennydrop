@@ -3,6 +3,9 @@
   "private": true,
   "type": "module",
   "scripts": {
+    "dev": "tsx watch src/main.ts",
+    "build": "tsup",
+    "start": "node dist/main.js",
     "typecheck": "tsc",
     "test": "vitest run --exclude 'src/**/*.browser.test.ts'",
     "test:browser": "vitest run browser"
@@ -10,10 +13,14 @@
   "dependencies": {
     "@pennydrop/extract": "workspace:*",
     "@pennydrop/fetch": "workspace:*",
+    "@pennydrop/queue": "workspace:*",
+    "bullmq": "5.81.5",
     "playwright": "1.63.0"
   },
   "devDependencies": {
     "@pennydrop/shop": "workspace:*",
+    "tsup": "8.5.1",
+    "tsx": "4.23.15",
     "vitest": "4.1.12"
   }
 }

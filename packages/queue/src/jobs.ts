@@ -81,6 +81,10 @@ export interface CheckReport {
   locator: string | null;
   readings: Reading[];
   neededBrowser: boolean;
+  /** The plain-HTTP lane found no price in the HTML: worth a try in a browser. */
+  wantsBrowser: boolean;
+  /** Don't check this site again before this moment (a 429, or the breaker's cooldown). */
+  notBefore: number | null;
   retryAfterSeconds: number | null;
   etag: string | null;
   lastModified: string | null;
