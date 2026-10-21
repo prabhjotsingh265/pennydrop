@@ -30,6 +30,16 @@ describe('cleanUrl', () => {
     expect(clean('https://user:secret@example.com/')).toBe('has-credentials');
   });
 
+  it('reads a host and port without a scheme as an address, not a scheme', () => {
+    expect(clean('shop.example.com:8443/p/mug')).toBe('https://shop.example.com:8443/p/mug');
+    expect(clean('localhost:3000/p')).toBe('https://localhost:3000/p');
+    expect(clean('mailto:someone@example.com')).toBe('not-http');
+  });
+
+  it('keeps IPv6 addresses, for the private-network check to judge', () => {
+    expect(clean('http://[::1]:8080/p')).toBe('http://[::1]:8080/p');
+  });
+
   it('allows the local practice shop', () => {
     expect(clean('http://fickle.localhost:4000/p/stoneware-mug')).toBe(
       'http://fickle.localhost:4000/p/stoneware-mug',

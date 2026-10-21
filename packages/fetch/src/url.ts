@@ -18,16 +18,19 @@ export type CleanUrl =
  */
 export function cleanUrl(input: string): CleanUrl {
   const text = input.trim();
+  // "shop.example.com:8443/p" is a host and a port, not a scheme called "shop.example.com".
+  const hasScheme = /^[a-z][a-z\d+.-]*:/i.test(text) && !/^[^/:]+:\d+(?:[/?#]|$)/.test(text);
   let url: URL;
   try {
-    url = new URL(/^[a-z][a-z\d+.-]*:/i.test(text) ? text : `https://${text}`);
+    url = new URL(hasScheme ? text : `https://${text}`);
   } catch {
     return { ok: false, error: 'not-a-url' };
   }
   if (url.protocol !== 'http:' && url.protocol !== 'https:')
     return { ok: false, error: 'not-http' };
   if (url.username || url.password) return { ok: false, error: 'has-credentials' };
-  if (!url.hostname.includes('.') && url.hostname !== 'localhost')
+  // A bare word isn't an address; an IPv6 address in brackets is, so the private-network check can see it.
+  if (!url.hostname.includes('.') && !url.hostname.startsWith('[') && url.hostname !== 'localhost')
     return { ok: false, error: 'not-a-url' };
 
   url.hostname = url.hostname.replace(/\.$/, '');
