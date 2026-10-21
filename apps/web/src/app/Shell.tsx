@@ -90,7 +90,8 @@ export function Shell() {
   return (
     <div className="min-h-dvh">
       <header className="sticky top-0 z-20 border-b border-line bg-paper/85 backdrop-blur">
-        <div className="mx-auto flex h-16 max-w-6xl items-center gap-3 px-4 sm:gap-6 sm:px-6">
+        {/* On a phone the links get a row of their own, under the logo and actions. */}
+        <div className="mx-auto flex max-w-6xl flex-wrap items-center gap-x-3 px-4 pt-2 sm:h-16 sm:flex-nowrap sm:gap-6 sm:px-6 sm:pt-0">
           <Link
             to="/app"
             className="flex items-center gap-2"
@@ -101,9 +102,18 @@ export function Shell() {
               Pennydrop
             </span>
           </Link>
-          <nav className="flex items-center gap-1 text-sm" aria-label="Main">
+          <nav
+            className="order-last -mx-3 flex w-full items-center gap-1 overflow-x-auto py-1 text-sm sm:order-none sm:mx-0 sm:w-auto sm:py-0"
+            aria-label="Main"
+          >
             <NavLink to="/app" end className={navClass}>
               Watchlist
+            </NavLink>
+            <NavLink to="/app/sites" className={navClass}>
+              Sites
+            </NavLink>
+            <NavLink to="/app/checks" className={navClass}>
+              Checks
             </NavLink>
           </nav>
           <div className="ml-auto flex items-center gap-1 sm:gap-2">

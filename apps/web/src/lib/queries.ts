@@ -1,7 +1,9 @@
 import type {
+  CheckFeed,
   CheckSummary,
   Me,
   PreviewView,
+  SiteSummary,
   UpdateWatchInput,
   WatchDetail,
   WatchSummary,
@@ -9,6 +11,7 @@ import type {
 import {
   QueryCache,
   QueryClient,
+  useInfiniteQuery,
   useMutation,
   useQuery,
   useQueryClient,
@@ -22,6 +25,8 @@ export const keys = {
   watch: (id: string) => ['watches', id] as const,
   checks: (id: string) => ['watches', id, 'checks'] as const,
   preview: (id: string) => ['previews', id] as const,
+  sites: ['sites'] as const,
+  feed: (show: 'all' | 'problems') => ['checks', show] as const,
 };
 
 export function createQueryClient() {
@@ -128,5 +133,32 @@ export function usePreview(id: string) {
     },
     refetchOnWindowFocus: false,
     staleTime: Number.POSITIVE_INFINITY,
+  });
+}
+
+/** The shops this workspace watches something on, and how checking them is going. */
+export function useSites() {
+  const poll = usePollInterval();
+  return useQuery({
+    queryKey: keys.sites,
+    queryFn: ({ signal }) =>
+      api<{ sites: SiteSummary[] }>('/api/sites', { signal }).then((data) => data.sites),
+    refetchInterval: poll,
+  });
+}
+
+/** Every check across the workspace, newest first, a page at a time. */
+export function useCheckFeed(show: 'all' | 'problems') {
+  const poll = usePollInterval();
+  return useInfiniteQuery({
+    queryKey: keys.feed(show),
+    queryFn: ({ pageParam, signal }) =>
+      api<CheckFeed>(
+        `/api/checks?show=${show}${pageParam ? `&before=${encodeURIComponent(pageParam)}` : ''}`,
+        { signal },
+      ),
+    initialPageParam: null as string | null,
+    getNextPageParam: (last) => last.next,
+    refetchInterval: poll,
   });
 }

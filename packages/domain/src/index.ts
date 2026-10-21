@@ -24,3 +24,4 @@ export {
 } from './watches.ts';
 export { updateWorkspaceSchema, type UpdateWorkspaceInput } from './workspace.ts';
 export type { PreviewChoice, PreviewShown, PreviewStatus, PreviewView } from './previews.ts';
+export type { CheckFeed, CheckFeedItem, SiteSummary } from './reports.ts';

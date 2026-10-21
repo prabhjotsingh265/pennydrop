@@ -17,8 +17,10 @@ export function useLiveUpdates() {
     source.addEventListener('checked', (event) => {
       const { watchId } = JSON.parse((event as MessageEvent<string>).data) as { watchId: string };
       void queryClient.invalidateQueries({ queryKey: keys.watches, exact: true });
-      // The product, and its checks below it.
+      // The product, and its checks below it; then the Sites and Checks pages, if open.
       void queryClient.invalidateQueries({ queryKey: keys.watch(watchId) });
+      void queryClient.invalidateQueries({ queryKey: keys.sites });
+      void queryClient.invalidateQueries({ queryKey: ['checks'] });
     });
     source.addEventListener('watches', () => {
       void queryClient.invalidateQueries({ queryKey: keys.watches });

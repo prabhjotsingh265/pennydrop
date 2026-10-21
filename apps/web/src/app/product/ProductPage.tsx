@@ -192,9 +192,18 @@ function Product({
 
       <section aria-labelledby="history">
         <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-          <h2 id="history" className="text-[15px] font-semibold">
-            Price history
-          </h2>
+          <div className="flex items-baseline gap-4">
+            <h2 id="history" className="text-[15px] font-semibold">
+              Price history
+            </h2>
+            <a
+              href={`/api/watches/${id}/history.csv`}
+              download
+              className="text-[13px] text-copper-deep underline"
+            >
+              Download CSV
+            </a>
+          </div>
           <div
             className="flex rounded-[8px] border border-line p-0.5"
             role="group"

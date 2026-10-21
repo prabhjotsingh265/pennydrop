@@ -1,8 +1,10 @@
 import { createBrowserRouter, Navigate } from 'react-router';
 import { AddPage } from './app/add/AddPage.tsx';
+import { ChecksPage } from './app/ChecksPage.tsx';
 import { ProductPage } from './app/product/ProductPage.tsx';
 import { RequireAuth } from './app/RequireAuth.tsx';
 import { Shell } from './app/Shell.tsx';
+import { SitesPage } from './app/SitesPage.tsx';
 import { WatchlistPage } from './app/WatchlistPage.tsx';
 import { CheckEmail } from './auth/CheckEmail.tsx';
 import { SignIn } from './auth/SignIn.tsx';
@@ -26,6 +28,8 @@ export const router = createBrowserRouter([
       { index: true, element: <WatchlistPage /> },
       { path: 'add', element: <AddPage /> },
       { path: 'p/:id', element: <ProductPage /> },
+      { path: 'sites', element: <SitesPage /> },
+      { path: 'checks', element: <ChecksPage /> },
     ],
   },
   { path: '/prototype', element: <Prototype /> },

@@ -48,12 +48,17 @@ export function WatchlistPage() {
 
   return (
     <>
-      <div className="mb-6">
-        <h1 className="text-[28px] leading-tight font-semibold [font-stretch:108%]">Watchlist</h1>
-        <p className="tabular mt-1 text-[12px] text-ink-2">
-          {sorted.length} {sorted.length === 1 ? 'product' : 'products'} · {under} at or under
-          target · closest to target first
-        </p>
+      <div className="mb-6 flex flex-wrap items-end justify-between gap-3">
+        <div>
+          <h1 className="text-[28px] leading-tight font-semibold [font-stretch:108%]">Watchlist</h1>
+          <p className="tabular mt-1 text-[12px] text-ink-2">
+            {sorted.length} {sorted.length === 1 ? 'product' : 'products'} · {under} at or under
+            target · closest to target first
+          </p>
+        </div>
+        <a href="/api/watches.csv" download className="text-sm text-copper-deep underline">
+          Export as CSV
+        </a>
       </div>
       <FlipGrid order={sorted.map((watch) => watch.id).join()}>
         {sorted.map((watch) => (
