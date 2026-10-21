@@ -21,6 +21,9 @@ const SITE_FAILURES = new Set<CheckOutcome>([
 const SITE_HEALTHY = new Set<CheckOutcome>(['ok', 'unchanged', 'price_not_found', 'gone']);
 
 export const ingestJobOptions = {
+  // If the database blinks, the result waits and tries again rather than being lost.
+  attempts: 5,
+  backoff: { type: 'exponential', delay: 1_000 },
   removeOnComplete: { age: 3_600, count: 1_000 },
   removeOnFail: { age: 7 * 86_400 },
 };
