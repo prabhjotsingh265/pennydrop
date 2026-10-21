@@ -3,7 +3,8 @@
   "private": true,
   "type": "module",
   "exports": {
-    "./app": "./src/app.ts"
+    "./app": "./src/app.ts",
+    "./settings": "./src/settings.ts"
   },
   "scripts": {
     "dev": "tsx watch src/server.ts",
