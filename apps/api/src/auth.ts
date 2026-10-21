@@ -1,4 +1,5 @@
 import type { Db } from '@pennydrop/db';
+import { MIN_PASSWORD_LENGTH } from '@pennydrop/domain';
 import { betterAuth } from 'better-auth';
 import { prismaAdapter } from 'better-auth/adapters/prisma';
 import type { Config } from './config.ts';
@@ -21,7 +22,7 @@ export function createAuth({ db, mail, config }: { db: Db; mail: Mailer; config:
     emailAndPassword: {
       enabled: true,
       requireEmailVerification: true,
-      minPasswordLength: 10,
+      minPasswordLength: MIN_PASSWORD_LENGTH,
       autoSignIn: false,
     },
     emailVerification: {

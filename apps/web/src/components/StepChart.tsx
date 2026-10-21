@@ -27,7 +27,8 @@ export interface ChartEvent {
 interface StepChartProps {
   /** Change points, sorted by time: each price holds until the next one. */
   points: readonly PricePoint[];
-  target: number;
+  /** No target: no slot is drawn. */
+  target?: number | null;
   domain: readonly [number, number];
   /** The line is drawn up to here; the coin sits at its end. */
   now: number;
@@ -97,7 +98,7 @@ export function StepChart({
   const innerHeight = height - margin.top - margin.bottom;
   const radius = compact ? 4.5 : 9;
 
-  const prices = points.map((p) => p.price).concat(target);
+  const prices = points.map((p) => p.price).concat(target ?? []);
   const [low, high] = yDomain ?? [Math.min(...prices), Math.max(...prices)];
   // A given range is drawn as given; a derived one gets breathing room.
   const pad = yDomain ? 0 : (high - low) * 0.18 || 100;
@@ -130,7 +131,7 @@ export function StepChart({
 
   const coinX = x(now);
   const coinY = y(current);
-  const targetY = y(target);
+  const targetY = target == null ? Number.NaN : y(target);
 
   // The coin's x follows the line directly; its y goes through the physics.
   const place = useRef({ x: coinX, targetY, lastY: coinY });
@@ -178,7 +179,7 @@ export function StepChart({
     }
   };
   const onKeyDown = (event: KeyboardEvent<SVGElement>) => {
-    if (!onTargetChange) return;
+    if (!onTargetChange || target == null) return;
     const step = event.shiftKey || event.key.startsWith('Page') ? targetStep * 10 : targetStep;
     const moves: Record<string, number> = {
       ArrowUp: step,
@@ -272,48 +273,50 @@ export function StepChart({
             />
 
             {/* The target: a slot with a gap where the coin passes through. */}
-            <g ref={slotRef} className="slot">
-              <line
-                x2={Math.max(coinX - gap / 2, 0)}
-                y1={targetY}
-                y2={targetY}
-                stroke="var(--copper)"
-                strokeWidth={compact ? 1.5 : 2}
-              />
-              <line
-                x1={Math.min(coinX + gap / 2, innerWidth)}
-                x2={innerWidth}
-                y1={targetY}
-                y2={targetY}
-                stroke="var(--copper)"
-                strokeWidth={compact ? 1.5 : 2}
-              />
-              <circle
-                className="slot-glint"
-                cx={coinX - gap / 2}
-                cy={targetY}
-                r={2.5}
-                fill="var(--copper)"
-              />
-              <circle
-                className="slot-glint"
-                cx={coinX + gap / 2}
-                cy={targetY}
-                r={2.5}
-                fill="var(--copper)"
-              />
-              {!compact && (
-                <text
-                  x={0}
-                  y={targetY - 8}
-                  className="tabular fill-copper-deep text-[11px] font-medium"
-                >
-                  Target {formatMoney(target, currency)}
-                </text>
-              )}
-            </g>
+            {target != null && (
+              <g ref={slotRef} className="slot">
+                <line
+                  x2={Math.max(coinX - gap / 2, 0)}
+                  y1={targetY}
+                  y2={targetY}
+                  stroke="var(--copper)"
+                  strokeWidth={compact ? 1.5 : 2}
+                />
+                <line
+                  x1={Math.min(coinX + gap / 2, innerWidth)}
+                  x2={innerWidth}
+                  y1={targetY}
+                  y2={targetY}
+                  stroke="var(--copper)"
+                  strokeWidth={compact ? 1.5 : 2}
+                />
+                <circle
+                  className="slot-glint"
+                  cx={coinX - gap / 2}
+                  cy={targetY}
+                  r={2.5}
+                  fill="var(--copper)"
+                />
+                <circle
+                  className="slot-glint"
+                  cx={coinX + gap / 2}
+                  cy={targetY}
+                  r={2.5}
+                  fill="var(--copper)"
+                />
+                {!compact && (
+                  <text
+                    x={0}
+                    y={targetY - 8}
+                    className="tabular fill-copper-deep text-[11px] font-medium"
+                  >
+                    Target {formatMoney(target, currency)}
+                  </text>
+                )}
+              </g>
+            )}
 
-            {onTargetChange && (
+            {onTargetChange && target != null && (
               <line
                 x2={innerWidth}
                 y1={targetY}

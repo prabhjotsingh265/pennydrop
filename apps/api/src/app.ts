@@ -1,5 +1,5 @@
 import type { Db } from '@pennydrop/db';
-import { updateWorkspaceSchema } from '@pennydrop/domain';
+import { updateWorkspaceSchema, type Me } from '@pennydrop/domain';
 import { fromNodeHeaders } from 'better-auth/node';
 import Fastify, { type FastifyReply, type FastifyRequest } from 'fastify';
 import { ZodError } from 'zod';
@@ -93,7 +93,7 @@ export function buildApp(deps: AppDeps) {
       };
     });
 
-    const me = async (member: Member) => {
+    const me = async (member: Member): Promise<Me> => {
       const workspace = await db.workspace.findUniqueOrThrow({ where: { id: member.workspaceId } });
       return {
         user: { id: member.userId, name: member.name, email: member.email },
