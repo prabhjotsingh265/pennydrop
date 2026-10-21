@@ -167,6 +167,7 @@ model Target {
   checks      Check[]
   pricePoints PricePoint[]
   events      Event[]
+  watches     Watch[]
 
   @@index([status, nextCheckAt])
   @@index([siteId])
@@ -240,4 +241,153 @@ model Event {
   @@index([targetId, at])
   @@index([siteId, at])
   @@map("events")
+}
+
+// ---- Accounts, managed by Better Auth. Its ids are its own strings. ----
+
+model User {
+  id            String       @id
+  name          String
+  email         String       @unique
+  emailVerified Boolean      @default(false) @map("email_verified")
+  image         String?
+  createdAt     DateTime     @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt     DateTime     @updatedAt @map("updated_at") @db.Timestamptz
+
+  sessions    Session[]
+  accounts    Account[]
+  memberships Membership[]
+
+  @@map("users")
+}
+
+model Session {
+  id        String   @id
+  expiresAt DateTime @map("expires_at") @db.Timestamptz
+  token     String   @unique
+  ipAddress String?  @map("ip_address")
+  userAgent String?  @map("user_agent")
+  userId    String   @map("user_id")
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("sessions")
+}
+
+model Account {
+  id                    String    @id
+  accountId             String    @map("account_id")
+  providerId            String    @map("provider_id")
+  userId                String    @map("user_id")
+  accessToken           String?   @map("access_token")
+  refreshToken          String?   @map("refresh_token")
+  idToken               String?   @map("id_token")
+  accessTokenExpiresAt  DateTime? @map("access_token_expires_at") @db.Timestamptz
+  refreshTokenExpiresAt DateTime? @map("refresh_token_expires_at") @db.Timestamptz
+  scope                 String?
+  /// A hash, never the password itself.
+  password              String?
+  createdAt             DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt             DateTime  @updatedAt @map("updated_at") @db.Timestamptz
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("accounts")
+}
+
+model Verification {
+  id         String   @id
+  identifier String
+  value      String
+  expiresAt  DateTime @map("expires_at") @db.Timestamptz
+  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt  DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+  @@index([identifier])
+  @@map("verifications")
+}
+
+// ---- Workspaces and what they watch. ----
+
+enum MembershipRole {
+  owner
+  member
+}
+
+/// Every account gets its own workspace; teams come later.
+model Workspace {
+  id         String    @id @default(uuid(7)) @db.Uuid
+  name       String
+  /// For showing times and quiet hours.
+  timezone   String    @default("Europe/London")
+  isDemo     Boolean   @default(false) @map("is_demo")
+  /// Demo workspaces are deleted after this.
+  expiresAt  DateTime? @map("expires_at") @db.Timestamptz
+  maxWatches Int       @default(100) @map("max_watches")
+  createdAt  DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt  DateTime  @updatedAt @map("updated_at") @db.Timestamptz
+
+  memberships Membership[]
+  watches     Watch[]
+  groups      ProductGroup[]
+
+  @@map("workspaces")
+}
+
+model Membership {
+  workspaceId String         @map("workspace_id") @db.Uuid
+  userId      String         @map("user_id")
+  role        MembershipRole @default(owner)
+  createdAt   DateTime       @default(now()) @map("created_at") @db.Timestamptz
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([workspaceId, userId])
+  @@index([userId])
+  @@map("memberships")
+}
+
+/// The same item at several shops, compared side by side.
+model ProductGroup {
+  id          String   @id @default(uuid(7)) @db.Uuid
+  workspaceId String   @map("workspace_id") @db.Uuid
+  name        String
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  watches   Watch[]
+
+  @@index([workspaceId])
+  @@map("product_groups")
+}
+
+/// One workspace's interest in a product page: its own label, target and interval.
+model Watch {
+  id              String    @id @default(uuid(7)) @db.Uuid
+  workspaceId     String    @map("workspace_id") @db.Uuid
+  targetId        String    @map("target_id") @db.Uuid
+  groupId         String?   @map("group_id") @db.Uuid
+  label           String?
+  /// Minor units, in the product's currency.
+  targetPrice     BigInt?   @map("target_price")
+  intervalSeconds Int       @default(21600) @map("interval_seconds")
+  /// The workspace's own listing, in a group of competitors.
+  isMine          Boolean   @default(false) @map("is_mine")
+  paused          Boolean   @default(false)
+  createdAt       DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt       DateTime  @updatedAt @map("updated_at") @db.Timestamptz
+
+  workspace Workspace     @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  target    Target        @relation(fields: [targetId], references: [id], onDelete: Cascade)
+  group     ProductGroup? @relation(fields: [groupId], references: [id], onDelete: SetNull)
+
+  @@unique([workspaceId, targetId])
+  @@index([targetId])
+  @@index([groupId])
+  @@map("watches")
 }
