@@ -16,6 +16,8 @@ export const addWatchSchema = z.strictObject({
   label: z.string().trim().max(120).optional(),
   targetPrice: money.optional(),
   intervalSeconds: intervalSchema.default(DEFAULT_INTERVAL),
+  /** The preview it was added from, and which of its prices was picked. */
+  preview: z.strictObject({ id: z.uuid(), choice: z.number().int().min(0).max(100) }).optional(),
 });
 export type AddWatchInput = z.input<typeof addWatchSchema>;
 

@@ -3,6 +3,7 @@ import { Breaker, QUEUES, SiteGate, redisConnection, type IngestJob } from '@pen
 import { Queue, Worker } from 'bullmq';
 import { BrowserPool } from './browser.ts';
 import { createChecker } from './check.ts';
+import { createPreviewProcessor } from './preview.ts';
 import { createFetchProcessor } from './worker.ts';
 
 // One codebase, two lanes: plain HTTP (many at once) or Chromium (a few at once).
@@ -24,10 +25,13 @@ const guard = localShop
 const connection = redisConnection();
 const pool = lane === 'browser' ? new BrowserPool(guard) : undefined;
 const ingest = new Queue<IngestJob>(QUEUES.ingest, { connection });
+const checker = createChecker({ userAgent, guard, pool });
+const gate = new SiteGate(connection);
+const breaker = new Breaker(connection);
 const processor = createFetchProcessor({
-  checker: createChecker({ userAgent, guard, pool }),
-  gate: new SiteGate(connection),
-  breaker: new Breaker(connection),
+  checker,
+  gate,
+  breaker,
   ingest,
   lane,
   worker: `${hostname()}/${lane}`,
@@ -42,11 +46,26 @@ const worker = new Worker(lane === 'browser' ? QUEUES.fetchBrowser : QUEUES.fetc
 worker.on('failed', (job, error) => console.error(`check ${job?.id} failed:`, error.message));
 console.log(`Fetcher (${lane}) running ${concurrency} at a time.`);
 
+// The browser lane also renders previews for people adding a product: one at a time, sharing its Chromium.
+const previews =
+  lane === 'browser'
+    ? new Worker(
+        QUEUES.preview,
+        createPreviewProcessor({ checker, gate, breaker, redis: connection }),
+        {
+          connection,
+          concurrency: 1,
+          lockDuration: 120_000,
+        },
+      )
+    : null;
+previews?.on('failed', (job, error) => console.error(`preview ${job?.id} failed:`, error.message));
+
 // Finish the checks in hand before exiting when Docker stops the container.
 for (const signal of ['SIGINT', 'SIGTERM'] as const) {
   process.once(signal, () => {
     void (async () => {
-      await worker.close();
+      await Promise.all([worker.close(), previews?.close()]);
       await pool?.close();
       await ingest.close();
       await connection.quit();

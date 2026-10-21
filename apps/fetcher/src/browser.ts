@@ -21,6 +21,9 @@ export interface RenderedPage {
   boxes: PriceBox[];
   /** JPEG, when rendered for people. */
   screenshot: Buffer | null;
+  screenshotHeight: number;
+  /** The page as the shop served it, before any script ran. Kept when rendered for people. */
+  source: string | null;
   /** Requests from the page the address guard refused. */
   blocked: number;
   timings: { navigate: number; settle: number; total: number };
@@ -35,7 +38,8 @@ export class RenderError extends Error {
 }
 
 const VIEWPORT = { width: 1280, height: 900 };
-const SCREENSHOT_HEIGHT = 2000;
+export const SCREENSHOT_WIDTH = 1280;
+export const SCREENSHOT_HEIGHT = 2000;
 
 /**
  * One Chromium, shared by every render and restarted every few hundred pages
@@ -163,14 +167,19 @@ export class BrowserPool {
       const boxes = (await page.evaluate(PRICE_BOXES_SCRIPT)) as PriceBox[];
       const html = await page.content();
       let screenshot: Buffer | null = null;
+      let screenshotHeight = 0;
+      let source: string | null = null;
       if (forPeople) {
         const height = (await page.evaluate('document.documentElement.scrollHeight')) as number;
+        screenshotHeight = Math.min(height, SCREENSHOT_HEIGHT);
         screenshot = await page.screenshot({
           type: 'jpeg',
           quality: 70,
           fullPage: true,
-          clip: { x: 0, y: 0, width: VIEWPORT.width, height: Math.min(height, SCREENSHOT_HEIGHT) },
+          clip: { x: 0, y: 0, width: VIEWPORT.width, height: screenshotHeight },
         });
+        // What a plain request would have got: is the browser needed at all?
+        source = (await response?.text().catch(() => null)) ?? null;
       }
 
       return {
@@ -179,6 +188,8 @@ export class BrowserPool {
         html,
         boxes,
         screenshot,
+        screenshotHeight,
+        source,
         blocked: proxy.blocked() - blockedBefore,
         timings: {
           navigate: navigated - started,

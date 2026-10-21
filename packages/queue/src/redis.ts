@@ -5,3 +5,5 @@ export function redisConnection(url = process.env.REDIS_URL): Redis {
   if (!url) throw new Error('REDIS_URL is not set.');
   return new Redis(url, { maxRetriesPerRequest: null });
 }
+
+export type { Redis };

@@ -170,6 +170,18 @@ export interface LayoutBox {
   struck: boolean;
 }
 
+/** The first element a CSS selector finds. */
+export function firstElement(page: Page, selector: string): Element | null {
+  return page.$(selector).toArray().find(isTag) ?? null;
+}
+
+/** The element at a path from pathOf, or from a browser's box. */
+export function elementAt(page: Page, path: readonly number[]): Element | null {
+  let node: Element | undefined = page.$('html')[0];
+  for (const index of path) node = node?.children.filter(isTag)[index];
+  return node ?? null;
+}
+
 /** The element's child positions from <html> down: how a browser box finds it again. */
 export function pathOf(element: Element): number[] {
   const path: number[] = [];

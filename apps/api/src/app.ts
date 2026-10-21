@@ -6,6 +6,8 @@ import { ZodError } from 'zod';
 import { systemLookup, type Lookup } from './addresses.ts';
 import type { Auth } from './auth.ts';
 import type { Config } from './config.ts';
+import { previewRoutes } from './preview-routes.ts';
+import type { Previews } from './previews.ts';
 import { watchRoutes } from './watches.ts';
 
 export interface Member {
@@ -28,6 +30,7 @@ export interface AppDeps {
   config: Config;
   /** Asks the dispatcher to run now, so a new or "check now" product isn't left for the next tick. */
   wake: () => Promise<void>;
+  previews: Previews;
   lookup?: Lookup;
   now?: () => number;
   logger?: boolean;
@@ -115,13 +118,14 @@ export function buildApp(deps: AppDeps) {
       return me(member);
     });
 
+    const vet = { db, localShops: config.localShops, lookup: deps.lookup ?? systemLookup };
     await watchRoutes(dashboard, {
-      db,
+      ...vet,
       wake: deps.wake,
-      localShops: config.localShops,
-      lookup: deps.lookup ?? systemLookup,
+      previews: deps.previews,
       now: deps.now,
     });
+    await previewRoutes(dashboard, { ...vet, previews: deps.previews });
   });
 
   app.setErrorHandler((error, _request, reply) => {

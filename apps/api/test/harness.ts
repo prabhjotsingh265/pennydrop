@@ -5,6 +5,7 @@ import { buildApp } from '../src/app.ts';
 import { createAuth } from '../src/auth.ts';
 import type { Config } from '../src/config.ts';
 import type { Email } from '../src/mail.ts';
+import { FakePreviews } from './fake-previews.ts';
 
 export const APP_URL = 'http://localhost:3000';
 
@@ -23,7 +24,8 @@ export function harness() {
   const resolved = new Map<string, string[]>();
   const lookup: Lookup = async (host) => resolved.get(host) ?? ['93.184.215.14'];
   const auth = createAuth({ db, mail: async (email) => void sent.push(email), config });
-  const app = buildApp({ db, auth, config, wake, lookup, logger: false });
+  const previews = new FakePreviews();
+  const app = buildApp({ db, auth, config, wake, previews, lookup, logger: false });
 
   const cookiesFrom = (header: string | string[] | undefined) =>
     ([] as string[])
@@ -45,5 +47,15 @@ export function harness() {
     return cookiesFrom(verified.headers['set-cookie']);
   }
 
-  return { app, db, sent, wake, resolved, signIn, cookiesFrom, reset: () => resetDatabase(db) };
+  return {
+    app,
+    db,
+    sent,
+    wake,
+    resolved,
+    previews,
+    signIn,
+    cookiesFrom,
+    reset: () => resetDatabase(db),
+  };
 }

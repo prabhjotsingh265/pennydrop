@@ -5,6 +5,7 @@ import { buildApp } from './app.ts';
 import { createAuth } from './auth.ts';
 import { configFromEnv } from './config.ts';
 import { createMailer } from './mail.ts';
+import { queuePreviews } from './previews.ts';
 
 const config = configFromEnv();
 const db = createDb();
@@ -23,7 +24,8 @@ const wake = async () => {
     },
   );
 };
-const app = buildApp({ db, auth, config, wake });
+const previews = queuePreviews(connection);
+const app = buildApp({ db, auth, config, wake, previews });
 const port = Number(process.env.API_PORT ?? 3001);
 
 // Finish in-flight requests before exiting when Docker stops the container.
@@ -31,7 +33,7 @@ for (const signal of ['SIGINT', 'SIGTERM'] as const) {
   process.once(signal, () => {
     void app
       .close()
-      .then(() => Promise.all([ticks.close(), db.$disconnect()]))
+      .then(() => Promise.all([ticks.close(), previews.close(), db.$disconnect()]))
       .then(() => connection.quit())
       .then(() => process.exit(0));
   });

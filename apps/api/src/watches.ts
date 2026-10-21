@@ -7,10 +7,11 @@ import {
   type WatchStatus,
   type WatchSummary,
 } from '@pennydrop/domain';
-import { cleanUrl, siteOf } from '@pennydrop/fetch';
+import { cleanUrl } from '@pennydrop/fetch';
 import type { FastifyInstance, FastifyReply } from 'fastify';
 import { z } from 'zod';
-import { isPrivateHost, type Lookup } from './addresses.ts';
+import type { Previews } from './previews.ts';
+import { vetAddress, type VetDeps } from './sites.ts';
 
 const DAY_MS = 86_400_000;
 const HISTORY_DAYS = 30;
@@ -19,13 +20,10 @@ const CHECK_NOW_COOLDOWN_MS = 60_000;
 /** Real shops are checked hourly at most; every 15 minutes is for the practice shops. */
 const SHORTEST_REAL_INTERVAL = 3_600;
 
-export interface WatchDeps {
-  db: Db;
+export interface WatchDeps extends VetDeps {
   /** Asks the dispatcher to run now rather than at its next tick. */
   wake: () => Promise<void>;
-  /** Development: allow the practice shops at *.localhost. */
-  localShops: boolean;
-  lookup: Lookup;
+  previews: Previews;
   now?: () => number;
 }
 
@@ -95,14 +93,37 @@ async function summarise(db: Db, rows: WatchRow[], since: Date | null): Promise<
   }));
 }
 
+/**
+ * Someone picked a different price on the screenshot: that element becomes
+ * the site's way to read its price, as products on one site share a layout.
+ * The site is locked while it changes, as healing does.
+ */
+async function usePick(
+  tx: Prisma.TransactionClient,
+  siteId: string,
+  targetId: string,
+  selector: string,
+): Promise<void> {
+  await tx.$queryRaw`SELECT id FROM sites WHERE id = ${siteId}::uuid FOR UPDATE`;
+  const active = await tx.recipe.findFirst({
+    where: { siteId, retiredAt: null },
+    orderBy: { activeFrom: 'desc' },
+  });
+  if (active?.selector !== selector || active.attribute) {
+    await tx.recipe.updateMany({
+      where: { siteId, retiredAt: null },
+      data: { retiredAt: new Date() },
+    });
+    await tx.recipe.create({ data: { siteId, selector, source: 'user' } });
+    // A "not modified" answer would keep the old reading: ask each page for itself again.
+    await tx.target.updateMany({ where: { siteId }, data: { etag: null, lastModified: null } });
+  }
+  // Read it the new way straight away.
+  await tx.target.update({ where: { id: targetId }, data: { nextCheckAt: new Date() } });
+}
+
 const isConflict = (error: unknown) =>
   error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002';
-
-const URL_ERRORS = {
-  'not-a-url': 'That doesn’t look like a product page address.',
-  'not-http': 'That doesn’t look like a product page address.',
-  'has-credentials': 'Addresses with a username or password in them can’t be checked.',
-} as const;
 
 const idParams = z.object({ id: z.uuid() });
 const checksQuery = z.object({ limit: z.coerce.number().int().min(1).max(200).default(50) });
@@ -140,42 +161,37 @@ export async function watchRoutes(app: FastifyInstance, deps: WatchDeps) {
   app.post('/api/watches', async (request, reply) => {
     const { workspaceId } = request.member!;
     const input = addWatchSchema.parse(request.body ?? {});
-    const clean = cleanUrl(input.url);
-    if (!clean.ok) return refuse(reply, 'url', URL_ERRORS[clean.error]);
-    const hostname = new URL(clean.url).hostname;
-    if (await isPrivateHost(hostname, deps)) {
-      return refuse(reply, 'url', 'We can’t check addresses inside private networks.');
+
+    // From a preview: save the page where it ended up, read the way that was picked.
+    let address = input.url;
+    let picked: string | null = null;
+    let needsBrowser = false;
+    let title: string | null = null;
+    if (input.preview) {
+      const preview = await deps.previews.get(input.preview.id, workspaceId);
+      const result = preview?.status === 'done' ? preview.result : null;
+      if (!preview || !result) {
+        return refuse(reply, 'preview', 'That preview has expired. Open the address again.');
+      }
+      const asked = cleanUrl(input.url);
+      if (!asked.ok || asked.url !== preview.url) {
+        return refuse(reply, 'preview', 'That preview was for a different address.');
+      }
+      const choice = result.choices[input.preview.choice];
+      if (!choice) return refuse(reply, 'preview', 'Pick one of the prices on the screenshot.');
+      if (!choice.best) picked = result.selectors[input.preview.choice] ?? null;
+      needsBrowser = result.outcome === 'ok' && result.plainHtmlWorks === false;
+      title = result.title;
+      address = result.url;
     }
 
     const workspace = await db.workspace.findUniqueOrThrow({
       where: { id: workspaceId },
       include: { _count: { select: { watches: true } } },
     });
-    const site = await db.site.upsert({
-      where: { host: hostname },
-      update: {},
-      create: {
-        host: hostname,
-        registrable: siteOf(hostname),
-        demoAllowed: deps.localShops && hostname.endsWith('.localhost'),
-      },
-    });
-    if (site.policy !== 'allowed') {
-      return refuse(
-        reply,
-        'url',
-        site.policy === 'api_only'
-          ? 'This shop doesn’t allow automated checks. It offers an API instead.'
-          : 'This shop doesn’t allow automated checks.',
-      );
-    }
-    if (workspace.isDemo && !site.demoAllowed) {
-      return refuse(
-        reply,
-        'url',
-        'The demo only checks the practice shops. Run Pennydrop yourself to track anything.',
-      );
-    }
+    const vetted = await vetAddress(deps, workspace, address);
+    if (!vetted.ok) return refuse(reply, vetted.field, vetted.error);
+    const { site, url } = vetted;
     if (input.intervalSeconds < SHORTEST_REAL_INTERVAL && !site.demoAllowed) {
       return refuse(
         reply,
@@ -187,20 +203,30 @@ export async function watchRoutes(app: FastifyInstance, deps: WatchDeps) {
     const save = () =>
       db.$transaction(async (tx) => {
         const target = await tx.target.upsert({
-          where: { canonicalUrl: clean.url },
+          where: { canonicalUrl: url },
           update: {},
           create: {
             siteId: site.id,
-            url: clean.url,
-            canonicalUrl: clean.url,
+            url,
+            canonicalUrl: url,
             intervalSeconds: input.intervalSeconds,
+            title,
           },
         });
         const existing = await tx.watch.findUnique({
           where: { workspaceId_targetId: { workspaceId, targetId: target.id } },
         });
+        if (!existing && workspace._count.watches >= workspace.maxWatches) return null;
+
+        if (title && !target.title) {
+          await tx.target.update({ where: { id: target.id }, data: { title } });
+        }
+        if (needsBrowser && !site.needsBrowser) {
+          await tx.site.update({ where: { id: site.id }, data: { needsBrowser: true } });
+        }
+        if (picked) await usePick(tx, site.id, target.id, picked);
         if (existing) return { id: existing.id, created: false };
-        if (workspace._count.watches >= workspace.maxWatches) return null;
+
         const watch = await tx.watch.create({
           data: {
             workspaceId,
@@ -226,7 +252,7 @@ export async function watchRoutes(app: FastifyInstance, deps: WatchDeps) {
         `This workspace can watch up to ${workspace.maxWatches} products.`,
       );
     }
-    if (saved.created) await wake();
+    if (saved.created || picked) await wake();
     return reply
       .code(saved.created ? 201 : 200)
       .send({ watch: await summaryOf(saved.id, recent()), created: saved.created });

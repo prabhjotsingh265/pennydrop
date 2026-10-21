@@ -1,4 +1,4 @@
-import { extract, type Extraction, type LayoutBox, type Recipe } from '@pennydrop/extract';
+import { extract, type Extraction, type Recipe } from '@pennydrop/extract';
 import {
   FetchError,
   fetchPage,
@@ -10,6 +10,7 @@ import {
   type GuardOptions,
   type RobotsRecord,
 } from '@pennydrop/fetch';
+import type { PriceBox } from './boxes.ts';
 import { RenderError, type BrowserPool } from './browser.ts';
 
 /** How a check ended. The scheduler decides what to do next from this alone. */
@@ -55,7 +56,11 @@ export interface CheckResult {
   robots: RobotsRecord;
   crawlDelay: number | null;
   screenshot: Buffer | null;
-  boxes: LayoutBox[];
+  screenshotHeight: number;
+  boxes: PriceBox[];
+  /** For previews: the rendered page, and the page as served. */
+  html: string | null;
+  source: string | null;
   /** In words, for the check log. */
   detail: string;
   timings: { robots: number; http: number; browser: number; total: number };
@@ -154,7 +159,10 @@ export function createChecker(options: CheckerOptions) {
       lastModified: request.lastModified ?? null,
       crawlDelay: null as number | null,
       screenshot: null as Buffer | null,
-      boxes: [] as LayoutBox[],
+      screenshotHeight: 0,
+      boxes: [] as PriceBox[],
+      html: null as string | null,
+      source: null as string | null,
     };
     const finish = (
       mode: 'http' | 'browser',
@@ -196,7 +204,10 @@ export function createChecker(options: CheckerOptions) {
           url: page.url,
           status: page.status,
           screenshot: page.screenshot,
+          screenshotHeight: page.screenshotHeight,
           boxes: page.boxes,
+          html: request.forPeople ? page.html : null,
+          source: page.source,
         };
         const refused = page.status === null ? null : fromStatus(page.status);
         if (refused) return finish('browser', refused.outcome, refused.detail, extra);

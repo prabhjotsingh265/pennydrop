@@ -10,7 +10,7 @@ import { DelayedError, type Job, type Queue } from 'bullmq';
 import type { CheckResult, createChecker } from './check.ts';
 
 /** Outcomes that say the site itself is struggling: they count towards its breaker. */
-const SITE_FAILURES = new Set<CheckOutcome>([
+export const SITE_FAILURES = new Set<CheckOutcome>([
   'timeout',
   'network_error',
   'http_error',
@@ -18,7 +18,7 @@ const SITE_FAILURES = new Set<CheckOutcome>([
   'rate_limited',
 ]);
 /** Outcomes that prove the site is answering properly. */
-const SITE_HEALTHY = new Set<CheckOutcome>(['ok', 'unchanged', 'price_not_found', 'gone']);
+export const SITE_HEALTHY = new Set<CheckOutcome>(['ok', 'unchanged', 'price_not_found', 'gone']);
 
 export const ingestJobOptions = {
   // If the database blinks, the result waits and tries again rather than being lost.
