@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { priceAt } from './StepChart.tsx';
+import { priceAt, stepAt } from './StepChart.tsx';
 
 const points = [
   { t: 0, price: 4800 },
@@ -17,5 +17,13 @@ describe('priceAt', () => {
 
   it('uses the first price before history starts', () => {
     expect(priceAt(points, -3)).toBe(4800);
+  });
+});
+
+describe('stepAt', () => {
+  it('reads the step in force and how far it moved', () => {
+    expect(stepAt(points, 6)).toEqual({ price: 4650, change: -150 });
+    expect(stepAt(points, 1)).toEqual({ price: 4800, change: null });
+    expect(stepAt([], 1)).toBeNull();
   });
 });

@@ -42,6 +42,10 @@ interface StepChartProps {
   /** Makes the target slot draggable. */
   onTargetChange?: (price: number) => void;
   targetStep?: number;
+  /** Stretches to hatch: when the product was out of stock. */
+  bands?: readonly { from: number; to: number }[];
+  /** Turns on the hover readout; says when a moment was, in words. */
+  describeTime?: (t: number) => string;
   label: string;
 }
 
@@ -52,6 +56,15 @@ export function priceAt(points: readonly PricePoint[], t: number): number {
     price = point.price;
   }
   return price;
+}
+
+/** The price in force at a moment, and how far it moved from the step before. */
+export function stepAt(points: readonly PricePoint[], t: number) {
+  const index = points.findLastIndex((p) => p.t <= t);
+  const point = points[Math.max(index, 0)];
+  if (!point) return null;
+  const before = index > 0 ? points[index - 1] : undefined;
+  return { price: point.price, change: before ? point.price - before.price : null };
 }
 
 function useWidth<T extends HTMLElement>() {
@@ -83,10 +96,14 @@ export function StepChart({
   compact = false,
   onTargetChange,
   targetStep = 50,
+  bands = [],
+  describeTime,
   label,
 }: StepChartProps) {
   const reduced = useReducedMotion();
   const fadeId = useId();
+  const hatchId = useId();
+  const [hoverT, setHoverT] = useState<number | null>(null);
   const [boxRef, width] = useWidth<HTMLDivElement>();
   const coinRef = useRef<SVGGElement>(null);
   const slotRef = useRef<SVGGElement>(null);
@@ -114,9 +131,12 @@ export function StepChart({
   const current = priceAt(points, now);
   // Drawn from the left edge of the window, starting at the price in force
   // there; anything older would land off the chart.
+  // Drawn from the left edge of the window, or from the first reading if that came later:
+  // a line before anything was seen would claim a price nobody saw.
+  const start = Math.max(domain[0], points[0]?.t ?? domain[0]);
   const visible = [
-    { t: domain[0], price: priceAt(points, domain[0]) },
-    ...points.filter((p) => p.t > domain[0] && p.t <= now),
+    { t: start, price: priceAt(points, start) },
+    ...points.filter((p) => p.t > start && p.t <= now),
     { t: now, price: current },
   ];
   const stepLine = line<PricePoint>()
@@ -156,6 +176,7 @@ export function StepChart({
   }, [coinX, targetY, coin]);
 
   const yTicks = compact ? [] : y.ticks(4);
+  const hovered = hoverT === null ? null : stepAt(points, hoverT);
   const axisMoney = new Intl.NumberFormat('en-GB', {
     style: 'currency',
     currency,
@@ -206,6 +227,32 @@ export function StepChart({
           className="block overflow-visible"
         >
           <g transform={`translate(${margin.left} ${margin.top})`}>
+            {bands.length > 0 && (
+              <defs>
+                <pattern
+                  id={hatchId}
+                  width={6}
+                  height={6}
+                  patternUnits="userSpaceOnUse"
+                  patternTransform="rotate(45)"
+                >
+                  <line y2={6} stroke="var(--ink)" strokeOpacity={0.18} strokeWidth={1.5} />
+                </pattern>
+              </defs>
+            )}
+            {bands.map((band) => {
+              const from = x(Math.max(band.from, domain[0]));
+              const to = x(Math.min(band.to, now));
+              return to > from ? (
+                <rect
+                  key={band.from}
+                  x={from}
+                  width={to - from}
+                  height={innerHeight}
+                  fill={`url(#${CSS.escape(hatchId)})`}
+                />
+              ) : null;
+            })}
             {yTicks.map((tick) => (
               <g key={tick} transform={`translate(0 ${y(tick)})`}>
                 <line x2={innerWidth} stroke="var(--line)" />
@@ -316,6 +363,33 @@ export function StepChart({
               </g>
             )}
 
+            {describeTime && (
+              <rect
+                width={Math.max(innerWidth - gap, 0)}
+                height={innerHeight}
+                fill="transparent"
+                onPointerMove={(event) => {
+                  const left = event.currentTarget.getBoundingClientRect().left;
+                  const t = x.invert(event.clientX - left);
+                  // Before the first reading there's nothing to tell.
+                  setHoverT(t < start ? null : Math.min(t, now));
+                }}
+                onPointerLeave={() => setHoverT(null)}
+              />
+            )}
+            {hoverT !== null && (
+              <g pointerEvents="none">
+                <line
+                  x1={x(hoverT)}
+                  x2={x(hoverT)}
+                  y2={innerHeight}
+                  stroke="var(--ink-2)"
+                  strokeOpacity={0.5}
+                />
+                <circle cx={x(hoverT)} cy={y(priceAt(points, hoverT))} r={4} fill="var(--ink)" />
+              </g>
+            )}
+
             {onTargetChange && target != null && (
               <line
                 x2={innerWidth}
@@ -349,6 +423,21 @@ export function StepChart({
             </g>
           </g>
         </svg>
+      )}
+      {hoverT !== null && hovered && describeTime && (
+        <div
+          className="pointer-events-none absolute z-10 -translate-x-1/2 -translate-y-full rounded-[8px] border border-line bg-paper px-2.5 py-1.5 text-[12px] whitespace-nowrap shadow-sm"
+          style={{ left: margin.left + x(hoverT), top: margin.top + y(hovered.price) - 12 }}
+        >
+          <div className="tabular font-medium">{formatMoney(hovered.price, currency)}</div>
+          {hovered.change !== null && hovered.change !== 0 && (
+            <div className="tabular text-ink-2">
+              {hovered.change < 0 ? '↓' : '↑'} {formatMoney(Math.abs(hovered.change), currency)}{' '}
+              from before
+            </div>
+          )}
+          <div className="text-ink-2">{describeTime(hoverT)}</div>
+        </div>
       )}
     </div>
   );

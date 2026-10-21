@@ -34,3 +34,28 @@ export function useNow(everyMs = 30_000): number {
   }, [everyMs]);
   return now;
 }
+
+/** Dates in the workspace's own time zone: "21 Oct, 09:30" and "21 Oct". */
+export function dateWords(timeZone: string) {
+  const moment = new Intl.DateTimeFormat('en-GB', {
+    day: 'numeric',
+    month: 'short',
+    hour: '2-digit',
+    minute: '2-digit',
+    timeZone,
+  });
+  const day = new Intl.DateTimeFormat('en-GB', { day: 'numeric', month: 'short', timeZone });
+  const time = new Intl.DateTimeFormat('en-GB', { hour: '2-digit', minute: '2-digit', timeZone });
+  return {
+    moment: (t: number) => moment.format(t),
+    day: (t: number) => day.format(t),
+    time: (t: number) => time.format(t),
+  };
+}
+
+/** A step for dragging a target that suits the price: 50p on a £20 item, £10 on a £2,000 one. */
+export function targetStep(price: number): number {
+  if (price >= 100_000) return 1_000;
+  if (price >= 10_000) return 100;
+  return 50;
+}

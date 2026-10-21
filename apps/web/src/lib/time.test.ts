@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { ago, every, safeNext } from './time.ts';
+import { ago, dateWords, every, safeNext, targetStep } from './time.ts';
 
 describe('time words', () => {
   it.each([
@@ -23,5 +23,20 @@ describe('safeNext', () => {
     expect(safeNext('//evil.example.com')).toBe('/app');
     expect(safeNext('https://evil.example.com')).toBe('/app');
     expect(safeNext(null)).toBe('/app');
+  });
+});
+
+describe('dates and steps', () => {
+  it('writes dates in the workspace’s time zone', () => {
+    const at = Date.UTC(2026, 9, 21, 22, 30);
+    expect(dateWords('Europe/London').moment(at)).toBe('21 Oct, 23:30');
+    expect(dateWords('Asia/Kolkata').day(at)).toBe('22 Oct');
+    expect(dateWords('Asia/Kolkata').time(at)).toBe('04:00');
+  });
+
+  it('drags targets in steps that suit the price', () => {
+    expect(targetStep(2_000)).toBe(50);
+    expect(targetStep(40_000)).toBe(100);
+    expect(targetStep(200_000)).toBe(1_000);
   });
 });

@@ -1,5 +1,18 @@
-import type { CheckSummary, Me, PreviewView, WatchDetail, WatchSummary } from '@pennydrop/domain';
-import { QueryCache, QueryClient, useQuery } from '@tanstack/react-query';
+import type {
+  CheckSummary,
+  Me,
+  PreviewView,
+  UpdateWatchInput,
+  WatchDetail,
+  WatchSummary,
+} from '@pennydrop/domain';
+import {
+  QueryCache,
+  QueryClient,
+  useMutation,
+  useQuery,
+  useQueryClient,
+} from '@tanstack/react-query';
 import { ApiError, api } from './api.ts';
 
 export const keys = {
@@ -52,23 +65,54 @@ export function useWatches() {
   });
 }
 
-export function useWatch(id: string) {
+/** One product. `eager`: a check was just asked for, so look every couple of seconds. */
+export function useWatch(id: string, eager = false) {
   return useQuery({
     queryKey: keys.watch(id),
     queryFn: ({ signal }) => api<WatchDetail>(`/api/watches/${id}`, { signal }),
-    refetchInterval: 30_000,
+    refetchInterval: eager ? 2_000 : 30_000,
   });
 }
 
-export function useChecks(id: string) {
+export function useChecks(id: string, eager = false) {
   return useQuery({
     queryKey: keys.checks(id),
     queryFn: ({ signal }) =>
       api<{ checks: CheckSummary[] }>(`/api/watches/${id}/checks`, { signal }).then(
         (data) => data.checks,
       ),
-    refetchInterval: 30_000,
+    refetchInterval: eager ? 2_000 : 30_000,
   });
+}
+
+/** Changing, checking and removing one product, keeping the cached copies in step. */
+export function useWatchActions(id: string) {
+  const queryClient = useQueryClient();
+  const refreshList = () => queryClient.invalidateQueries({ queryKey: keys.watches, exact: true });
+
+  const update = useMutation({
+    mutationFn: (changes: UpdateWatchInput) =>
+      api<{ watch: WatchSummary }>(`/api/watches/${id}`, { method: 'PATCH', body: changes }),
+    onSuccess: ({ watch }) => {
+      // The answer carries 30 days of history; the product page keeps all of it.
+      queryClient.setQueryData<WatchDetail>(
+        keys.watch(id),
+        (old) => old && { ...old, watch: { ...watch, history: old.watch.history } },
+      );
+      void refreshList();
+    },
+  });
+  const checkNow = useMutation({
+    mutationFn: () => api(`/api/watches/${id}/check`, { method: 'POST' }),
+  });
+  const remove = useMutation({
+    mutationFn: () => api(`/api/watches/${id}`, { method: 'DELETE' }),
+    onSuccess: () => {
+      queryClient.removeQueries({ queryKey: keys.watch(id) });
+      void refreshList();
+    },
+  });
+  return { update, checkNow, remove };
 }
 
 /** A preview, asked about twice a second until it's finished. */

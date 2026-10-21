@@ -45,7 +45,7 @@ function AddressForm({ onPreview }: { onPreview: (preview: Previewing) => void }
       });
       // Already on the watchlist: there's nothing to add.
       if ('watchId' in answer) {
-        navigate('/app', { state: { already: answer.watchId } });
+        navigate(`/app/p/${answer.watchId}`, { state: { already: true } });
         return;
       }
       onPreview(answer);
@@ -117,7 +117,7 @@ function SaveForm({
       return;
     }
     try {
-      await api<{ watch: WatchSummary }>('/api/watches', {
+      const { watch } = await api<{ watch: WatchSummary }>('/api/watches', {
         method: 'POST',
         body: {
           url: preview.url,
@@ -128,7 +128,7 @@ function SaveForm({
         },
       });
       await queryClient.invalidateQueries({ queryKey: keys.watches });
-      navigate('/app');
+      navigate(`/app/p/${watch.id}`);
     } catch (error) {
       if (error instanceof ApiError && error.field === 'intervalSeconds') {
         form.setError('interval', { message: error.message });
@@ -213,9 +213,12 @@ function Refused({
   const keepTrying = async () => {
     setSaving(true);
     try {
-      await api('/api/watches', { method: 'POST', body: { url: preview.url } });
+      const { watch } = await api<{ watch: WatchSummary }>('/api/watches', {
+        method: 'POST',
+        body: { url: preview.url },
+      });
       await queryClient.invalidateQueries({ queryKey: keys.watches });
-      navigate('/app');
+      navigate(`/app/p/${watch.id}`);
     } catch (error) {
       setProblem(error instanceof Error ? error.message : 'Something went wrong.');
       setSaving(false);

@@ -1,5 +1,5 @@
 import { Plus } from 'lucide-react';
-import { Link, useLocation } from 'react-router';
+import { Link } from 'react-router';
 import { BrandMark } from '../components/BrandMark.tsx';
 import { useWatches } from '../lib/queries.ts';
 import { useNow } from '../lib/time.ts';
@@ -30,7 +30,6 @@ function Empty() {
 export function WatchlistPage() {
   const watches = useWatches();
   const now = useNow();
-  const already = (useLocation().state as { already?: string } | null)?.already;
 
   if (watches.isPending) {
     return (
@@ -49,11 +48,6 @@ export function WatchlistPage() {
 
   return (
     <>
-      {already && (
-        <div className="mb-6">
-          <Notice>That product is already on your watchlist.</Notice>
-        </div>
-      )}
       <div className="mb-6">
         <h1 className="text-[28px] leading-tight font-semibold [font-stretch:108%]">Watchlist</h1>
         <p className="tabular mt-1 text-[12px] text-ink-2">

@@ -1,5 +1,6 @@
 import { createBrowserRouter, Navigate } from 'react-router';
 import { AddPage } from './app/add/AddPage.tsx';
+import { ProductPage } from './app/product/ProductPage.tsx';
 import { RequireAuth } from './app/RequireAuth.tsx';
 import { Shell } from './app/Shell.tsx';
 import { WatchlistPage } from './app/WatchlistPage.tsx';
@@ -24,6 +25,7 @@ export const router = createBrowserRouter([
     children: [
       { index: true, element: <WatchlistPage /> },
       { path: 'add', element: <AddPage /> },
+      { path: 'p/:id', element: <ProductPage /> },
     ],
   },
   { path: '/prototype', element: <Prototype /> },
