@@ -99,6 +99,19 @@ services:
     ports:
       - '${FORWARD_MAILPIT_DASHBOARD_PORT:-8026}:8025'
 
+  # Chromium, for the browser fetcher's tests: make test-browser. It runs as
+  # your own user, so files it writes into the project stay yours.
+  browser:
+    image: pennydrop-browser:dev
+    build:
+      context: .
+      target: browser
+    profiles: ['browser']
+    user: '${HOST_UID:-1000}:${HOST_GID:-1000}'
+    volumes:
+      - .:/app
+      - pnpm-store:/pnpm-store
+
   # One-off commands (pnpm install, prettier, …): make pnpm c="…".
   tools:
     <<: *node

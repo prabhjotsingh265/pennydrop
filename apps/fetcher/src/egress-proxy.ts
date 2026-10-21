@@ -12,6 +12,10 @@ export interface EgressProxy {
 
 const WEB_PORTS = new Set([80, 443]);
 
+/** Marks the proxy's own refusals, so they can't be mistaken for a site's 403. */
+export const REFUSED_HEADER = 'x-pennydrop-refused';
+const REFUSED = { [REFUSED_HEADER]: '1' };
+
 /**
  * A forward proxy every request from the browser must go through. Each
  * upstream connection uses the same guarded lookup as the plain fetcher, so a
@@ -41,7 +45,7 @@ export async function startEgressProxy(options: GuardOptions): Promise<EgressPro
     const port = Number(target.port || 80);
     if (target.protocol !== 'http:' || !allowed(target.hostname, port)) {
       refused++;
-      return void res.writeHead(403).end();
+      return void res.writeHead(403, REFUSED).end();
     }
     const headers = { ...req.headers };
     delete headers['proxy-connection'];
@@ -61,8 +65,9 @@ export async function startEgressProxy(options: GuardOptions): Promise<EgressPro
       },
     );
     upstream.on('error', (error) => {
-      if ((error as { code?: string }).code === 'blocked-address') refused++;
-      if (!res.headersSent) res.writeHead(403);
+      const blocked = (error as { code?: string }).code === 'blocked-address';
+      if (blocked) refused++;
+      if (!res.headersSent) res.writeHead(blocked ? 403 : 502, blocked ? REFUSED : {});
       res.end();
     });
     req.pipe(upstream);

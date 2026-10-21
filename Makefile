@@ -9,7 +9,7 @@ TOOLS := $(COMPOSE) run --rm --no-deps tools
 
 .DEFAULT_GOAL := help
 
-.PHONY: help setup up down restart build logs shell pnpm install check test lint format
+.PHONY: help setup up down restart build logs shell pnpm install check test test-browser lint format
 
 help: ## List the available commands
 	@grep -E '^[a-z-]+:.*## ' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*## "}; {printf "  make %-10s %s\n", $$1, $$2}'
@@ -31,8 +31,9 @@ down: ## Stop every container
 
 restart: down up ## Stop, then start again
 
-build: ## Rebuild the Node image
+build: ## Rebuild the Node and Chromium images
 	$(COMPOSE) build
+	$(COMPOSE) --profile browser build browser
 
 logs: ## Follow the logs of every container
 	$(COMPOSE) logs -f
@@ -51,6 +52,9 @@ check: ## Formatting, lint, type checks and tests: what CI runs
 
 test: ## Run every test suite
 	$(TOOLS) pnpm test
+
+test-browser: ## Run the tests that need a real Chromium
+	$(COMPOSE) run --rm --no-deps browser pnpm --filter @pennydrop/fetcher test:browser
 
 lint: ## Lint every package
 	$(TOOLS) pnpm lint
