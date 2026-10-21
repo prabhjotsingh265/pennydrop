@@ -1,0 +1,35 @@
+import { describe, expect, it } from 'vitest';
+import { addWatchSchema, minorUnitsFrom, updateWatchSchema } from './index.ts';
+
+describe('minorUnitsFrom', () => {
+  it.each([
+    ['35', 'GBP', 3500],
+    ['£35.00', 'GBP', 3500],
+    ['34.5', 'GBP', 3450],
+    ['1,299.99', 'USD', 129999],
+    ['1.299,99', 'EUR', 129999],
+    ['1299', 'JPY', 1299],
+  ])('reads %s %s', (text, currency, minor) => {
+    expect(minorUnitsFrom(text, currency)).toBe(minor);
+  });
+
+  it('refuses nothing and zero', () => {
+    expect(minorUnitsFrom('', 'GBP')).toBeNull();
+    expect(minorUnitsFrom('0', 'GBP')).toBeNull();
+    expect(minorUnitsFrom('free', 'GBP')).toBeNull();
+  });
+});
+
+describe('the watch schemas', () => {
+  it('fills in the default interval and refuses ones that aren’t offered', () => {
+    expect(addWatchSchema.parse({ url: 'fickle.example.com/p/mug' }).intervalSeconds).toBe(21_600);
+    expect(addWatchSchema.safeParse({ url: 'x', intervalSeconds: 5 }).success).toBe(false);
+  });
+
+  it('refuses fields it doesn’t know, and prices that aren’t positive whole minor units', () => {
+    expect(addWatchSchema.safeParse({ url: 'x', admin: true }).success).toBe(false);
+    expect(updateWatchSchema.safeParse({ targetPrice: 0 }).success).toBe(false);
+    expect(updateWatchSchema.safeParse({ targetPrice: 12.5 }).success).toBe(false);
+    expect(updateWatchSchema.parse({ targetPrice: null })).toEqual({ targetPrice: null });
+  });
+});
