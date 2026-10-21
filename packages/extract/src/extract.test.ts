@@ -111,3 +111,41 @@ describe('deciding between readings', () => {
     expect(extract({ html }).amount).toBe(2000);
   });
 });
+
+describe('with a browser’s view of the page', () => {
+  const html = page(
+    '<main><h1>Lamp</h1>' +
+      '<p id="real">£40.00</p>' +
+      '<p id="trap" style="display:none">£4.00</p>' +
+      '<p id="old" style="text-decoration:line-through">£55.00</p>' +
+      '<button>Add to basket</button></main>',
+  );
+  // main is body's first child; its children are h1, the three prices, the button.
+  const box = (index: number, fontSize: number, extra: object = {}) => ({
+    path: [1, 0, index],
+    fontSize,
+    y: 200,
+    visible: true,
+    struck: false,
+    ...extra,
+  });
+
+  it('ignores a price shoppers can’t see, and reads crossed-out text as the was price', () => {
+    const result = extract({
+      html,
+      boxes: [box(1, 32), box(2, 48, { visible: false }), box(3, 16, { struck: true })],
+    });
+    expect(result).toMatchObject({ amount: 4000, was: 5500 });
+    const trap = result.results
+      .find((r) => r.strategy === 'heuristic')!
+      .candidates.find((c) => c.amount === 400);
+    expect(trap).toMatchObject({ confidence: 0.05, note: 'hidden on the page' });
+  });
+
+  it('prefers the largest price on the page', () => {
+    const result = extract({ html, boxes: [box(1, 32), box(2, 14), box(3, 16)] });
+    expect(result.results.find((r) => r.strategy === 'heuristic')!.candidates[0]?.note).toContain(
+      'the largest price on the page',
+    );
+  });
+});

@@ -9,7 +9,7 @@ const CASES: [string, string | null, number, string][] = [
   ['£1,299.99', null, 129999, 'GBP'],
   ['£1,299', null, 129900, 'GBP'],
   ['1.299,99 €', null, 129999, 'EUR'],
-  ['1 299,99 €', null, 129999, 'EUR'],
+  ['1\u202f299,99\u00a0€', null, 129999, 'EUR'],
   ['€12,50', null, 1250, 'EUR'],
   ['12,50 €', null, 1250, 'EUR'],
   ['€ 12,-', null, 1200, 'EUR'],

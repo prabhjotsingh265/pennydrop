@@ -6,7 +6,9 @@ import {
   isMarkedPrice,
   isRelated,
   isWasPrice,
+  pathOf,
   textNodes,
+  type LayoutBox,
   type Page,
 } from './page.ts';
 import { selectorFor } from './selector.ts';
@@ -214,14 +216,21 @@ const SMALL_PRINT =
  * text is scored on where it sits: near the title or the buy button, marked
  * as a price, or tucked away in related products, the header or small print.
  */
-export function fromHeuristics(page: Page, hints: PriceHints): StrategyResult {
-  type Scored = Candidate & { element: Element };
+export function fromHeuristics(
+  page: Page,
+  hints: PriceHints,
+  boxes: readonly LayoutBox[] = [],
+): StrategyResult {
+  type Scored = Candidate & { element: Element; box: LayoutBox | undefined };
   const scored: Scored[] = [];
   const was: { amount: number; element: Element }[] = [];
+  // From a browser render: how each price actually looked, found by its position in the page.
+  const layout = new Map(boxes.map((box) => [box.path.join('.'), box]));
 
   for (const { text, element } of textNodes(page)) {
+    const box = layout.get(pathOf(element).join('.'));
     for (const price of findPrices(text, hints)) {
-      if (isWasPrice(element)) {
+      if (isWasPrice(element) || box?.struck) {
         was.push({ amount: price.amount, element });
         continue;
       }
@@ -246,9 +255,15 @@ export function fromHeuristics(page: Page, hints: PriceHints): StrategyResult {
         reasons.push('in small print');
       }
       if (isChrome(element)) score -= 0.2;
+      if (box && box.y < 1000) score += 0.03;
       if (isRelated(page, element)) {
         score = 0.08;
         reasons.splice(0, reasons.length, 'in another product’s listing');
+      }
+      // A price shoppers can't see is never the price: often a trap, or another variant's.
+      if (box && !box.visible) {
+        score = 0.05;
+        reasons.splice(0, reasons.length, 'hidden on the page');
       }
       scored.push({
         strategy: 'heuristic',
@@ -257,7 +272,21 @@ export function fromHeuristics(page: Page, hints: PriceHints): StrategyResult {
         confidence: Math.min(Math.max(score, 0.05), 0.75),
         note: reasons.join(', ') || 'price-shaped text',
         element,
+        box,
       });
+    }
+  }
+
+  // In a real render, the product's own price is usually the biggest one on the page.
+  const shown = scored.filter((c) => c.box?.visible && c.confidence > 0.1);
+  const largest = Math.max(0, ...shown.map((c) => c.box!.fontSize));
+  const rivals = shown.filter((c) => c.box!.fontSize === largest);
+  if (largest > 0 && new Set(rivals.map((c) => c.amount)).size === 1) {
+    for (const candidate of rivals) {
+      candidate.confidence = Math.min(candidate.confidence + 0.12, 0.75);
+      candidate.note = [candidate.note, 'the largest price on the page']
+        .filter((n) => n !== 'price-shaped text')
+        .join(', ');
     }
   }
 
@@ -271,7 +300,7 @@ export function fromHeuristics(page: Page, hints: PriceHints): StrategyResult {
   }
 
   scored.sort((a, b) => b.confidence - a.confidence);
-  const candidates = scored.map(({ element, ...candidate }) => {
+  const candidates = scored.map(({ element, box: _box, ...candidate }) => {
     const old = was
       .filter((w) => w.amount > candidate.amount && distance(w.element, element) <= 4)
       .sort((a, b) => distance(a.element, element) - distance(b.element, element))[0];

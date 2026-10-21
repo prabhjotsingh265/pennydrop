@@ -157,3 +157,27 @@ export function isMarkedPrice(element: Element): boolean {
     .slice(0, 3)
     .some((node) => attributeWords(node).some((w) => w.includes('price') || w === 'amount'));
 }
+
+/** How a price-shaped piece of text looked in a real browser. */
+export interface LayoutBox {
+  /** Child positions from <html> down to the element. */
+  path: number[];
+  fontSize: number;
+  /** Distance from the top of the page, in pixels. */
+  y: number;
+  visible: boolean;
+  /** Crossed out, by markup or by CSS. */
+  struck: boolean;
+}
+
+/** The element's child positions from <html> down: how a browser box finds it again. */
+export function pathOf(element: Element): number[] {
+  const path: number[] = [];
+  let node: Element = element;
+  while (node.parent && isTag(node.parent)) {
+    const siblings = node.parent.children.filter(isTag);
+    path.unshift(siblings.indexOf(node));
+    node = node.parent;
+  }
+  return path;
+}

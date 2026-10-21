@@ -1,4 +1,4 @@
-import { loadPage } from './page.ts';
+import { loadPage, type LayoutBox } from './page.ts';
 import type { PriceHints } from './parse.ts';
 import {
   fromHeuristics,
@@ -36,6 +36,8 @@ export interface ExtractInput {
   /** The selector saved for this site, if there is one. */
   recipe?: Recipe | null;
   hints?: PriceHints;
+  /** How each price looked, when the page was rendered in a browser. */
+  boxes?: readonly LayoutBox[];
 }
 
 /** Below this, a price read only by the heuristics isn't trusted at all. */
@@ -49,7 +51,7 @@ const TRUSTED = 0.75;
  * agree add up; a heuristic guess on its own must clear ACCEPT; two trusted
  * strategies that disagree are flagged as a conflict rather than settled.
  */
-export function extract({ html, recipe, hints = {} }: ExtractInput): Extraction {
+export function extract({ html, recipe, hints = {}, boxes = [] }: ExtractInput): Extraction {
   const page = loadPage(html);
   const structured = [
     fromJsonLd(page, hints),
@@ -63,7 +65,7 @@ export function extract({ html, recipe, hints = {} }: ExtractInput): Extraction 
   const results = [
     fromSelector(page, recipe, pageHints),
     ...structured,
-    fromHeuristics(page, pageHints),
+    fromHeuristics(page, pageHints, boxes),
   ];
 
   const best = results.map((r) => r.candidates[0]).filter((c): c is Candidate => Boolean(c));
