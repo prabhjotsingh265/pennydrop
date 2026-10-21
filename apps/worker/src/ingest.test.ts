@@ -212,6 +212,43 @@ describe('healing', () => {
   });
 });
 
+describe('healing a whole site', () => {
+  it('heals once, however many of the site’s products come back with the old selector', async () => {
+    const old = await db.recipe.create({
+      data: { siteId, selector: '.price-now', source: 'auto' },
+    });
+    const others = await Promise.all(
+      [1, 2, 3].map((n) =>
+        db.target.create({
+          data: { siteId, url: `https://fickle.example.com/p/${n}`, canonicalUrl: `p${n}` },
+        }),
+      ),
+    );
+    const stale = {
+      recipe: { id: old.id, selector: '.price-now', attribute: null, pattern: null },
+    };
+    const broken = {
+      strategy: 'heuristic',
+      locator: '[data-price]',
+      readings: [
+        {
+          strategy: 'selector',
+          status: 'missing' as const,
+          amount: null,
+          confidence: null,
+          note: null,
+        },
+      ],
+    };
+    await Promise.all(
+      [targetId, ...others.map((t) => t.id)].map((id) => run(broken, { ...stale, targetId: id })),
+    );
+
+    expect(await db.recipe.count({ where: { retiredAt: null } })).toBe(1);
+    expect((await eventKinds()).filter((kind) => kind === 'selector_healed')).toHaveLength(1);
+  });
+});
+
 describe('when checks fail', () => {
   it('tries again after about a minute, then four, then fifteen', async () => {
     const delays = [];

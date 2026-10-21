@@ -149,9 +149,22 @@ export async function ingest(deps: IngestDeps, data: IngestJob): Promise<IngestR
         retire?: string;
         create?: { selector: string; attribute: string | null; source: 'auto' | 'healed' };
       } = {};
+      // Selectors belong to the site, so changes to them are made one at a time per site.
+      // When many of a site's products were queued with the old selector, the first to
+      // come back heals the site; the rest find it already replaced and leave it alone.
+      let activeRecipeId: string | null = null;
+      if (SUCCESS.has(outcome) && report.locator) {
+        await tx.$queryRaw`SELECT id FROM sites WHERE id = ${target.siteId}::uuid FOR UPDATE`;
+        const active = await tx.recipe.findFirst({
+          where: { siteId: target.siteId, retiredAt: null },
+          select: { id: true },
+        });
+        activeRecipeId = active?.id ?? null;
+      }
       if (SUCCESS.has(outcome) && report.locator) {
         if (
           job.recipe &&
+          job.recipe.id === activeRecipeId &&
           selector?.status === 'missing' &&
           report.locator !== job.recipe.selector
         ) {
@@ -174,7 +187,7 @@ export async function ingest(deps: IngestDeps, data: IngestJob): Promise<IngestR
             details: { from: job.recipe.selector, to: report.locator, how },
             site: true,
           });
-        } else if (!job.recipe) {
+        } else if (!job.recipe && !activeRecipeId) {
           recipeChange = {
             create: {
               selector: report.locator,
@@ -313,21 +326,14 @@ export async function ingest(deps: IngestDeps, data: IngestJob): Promise<IngestR
         await tx.recipe.update({ where: { id: job.recipe.id }, data: { hits: { increment: 1 } } });
       }
       if (recipeChange.create) {
-        // One active selector per site: a product elsewhere on the site may have just saved one.
-        const exists = await tx.recipe.findFirst({
-          where: { siteId: target.siteId, retiredAt: null },
-          select: { id: true },
+        await tx.recipe.create({
+          data: {
+            siteId: target.siteId,
+            selector: recipeChange.create.selector,
+            attribute: recipeChange.create.attribute,
+            source: recipeChange.create.source,
+          },
         });
-        if (!exists || recipeChange.retire) {
-          await tx.recipe.create({
-            data: {
-              siteId: target.siteId,
-              selector: recipeChange.create.selector,
-              attribute: recipeChange.create.attribute,
-              source: recipeChange.create.source,
-            },
-          });
-        }
       }
       await tx.target.update({ where: { id: target.id }, data: targetUpdate });
       if (Object.keys(siteUpdate).length)
