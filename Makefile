@@ -9,7 +9,7 @@ TOOLS := $(COMPOSE) run --rm --no-deps tools
 
 .DEFAULT_GOAL := help
 
-.PHONY: help setup up down restart build logs shell pnpm install check test test-browser lint format
+.PHONY: help setup up down restart build logs shell pnpm install migrate seed check test test-browser lint format
 
 help: ## List the available commands
 	@grep -E '^[a-z-]+:.*## ' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*## "}; {printf "  make %-10s %s\n", $$1, $$2}'
@@ -18,6 +18,9 @@ setup: ## First run on a new machine: build, install, start
 	@test -f .env || cp .env.example .env
 	$(COMPOSE) build
 	$(TOOLS) pnpm install
+	$(COMPOSE) up -d postgres redis
+	$(TOOLS) pnpm --filter @pennydrop/db generate
+	$(TOOLS) pnpm --filter @pennydrop/db migrate
 	$(COMPOSE) up -d
 	@echo ""
 	@echo "Pennydrop is running at http://localhost:$${FORWARD_WEB_PORT:-3000}"
@@ -46,6 +49,12 @@ pnpm: ## Run a pnpm command, e.g. make pnpm c="add zod --filter @pennydrop/api"
 
 install: ## Install packages after package.json changes
 	$(TOOLS) pnpm install
+
+migrate: ## Apply database migrations
+	$(TOOLS) pnpm --filter @pennydrop/db migrate
+
+seed: ## Add the practice shops and their products, to watch the pipeline work
+	$(TOOLS) pnpm --filter @pennydrop/worker seed
 
 check: ## Formatting, lint, type checks and tests: what CI runs
 	$(TOOLS) pnpm check

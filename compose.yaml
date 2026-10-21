@@ -25,6 +25,7 @@ services:
     command: ['pnpm', '--filter', '@pennydrop/web', 'dev']
     environment:
       API_ORIGIN: http://api:3001
+    networks: [default]
     ports:
       - '${FORWARD_WEB_PORT:-3000}:3000'
     depends_on:
@@ -34,6 +35,7 @@ services:
   api:
     <<: *node
     command: ['pnpm', '--filter', '@pennydrop/api', 'dev']
+    networks: [data, default]
     ports:
       - '${FORWARD_API_PORT:-3001}:3001'
     healthcheck:
@@ -57,8 +59,55 @@ services:
   shop:
     <<: *node
     command: ['pnpm', '--filter', '@pennydrop/shop', 'dev']
+    networks: [default]
     ports:
       - '${FORWARD_SHOP_PORT:-4000}:4000'
+
+  # Decides what to check and records what was found: the only worker with the database.
+  worker:
+    <<: *node
+    command: ['pnpm', '--filter', '@pennydrop/worker', 'dev']
+    networks: [data, default]
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  # The fetchers load pages from the internet, so they get Redis and nothing
+  # else: no database address, and no network route to PostgreSQL.
+  fetch-http:
+    <<: *node
+    command: ['pnpm', '--filter', '@pennydrop/fetcher', 'dev']
+    env_file: []
+    environment:
+      REDIS_URL: redis://redis:6379
+      FETCHER_LANE: http
+      LOCAL_SHOP_HOST: shop
+    networks: [default]
+    depends_on:
+      redis:
+        condition: service_healthy
+
+  fetch-browser:
+    image: pennydrop-browser:dev
+    build:
+      context: .
+      target: browser
+    restart: unless-stopped
+    user: '${HOST_UID:-1000}:${HOST_GID:-1000}'
+    command: ['pnpm', '--filter', '@pennydrop/fetcher', 'dev']
+    environment:
+      REDIS_URL: redis://redis:6379
+      FETCHER_LANE: browser
+      LOCAL_SHOP_HOST: shop
+    volumes:
+      - .:/app
+      - pnpm-store:/pnpm-store
+    networks: [default]
+    depends_on:
+      redis:
+        condition: service_healthy
 
   postgres:
     image: postgres:17-alpine
@@ -70,6 +119,7 @@ services:
     volumes:
       - postgres-data:/var/lib/postgresql/data
       - ./docker/postgres/create-test-database.sql:/docker-entrypoint-initdb.d/create-test-database.sql:ro
+    networks: [data]
     # Published only so you can connect a database GUI.
     ports:
       - '${FORWARD_DB_PORT:-55433}:5432'
@@ -84,6 +134,7 @@ services:
     image: redis:8.2-alpine
     restart: unless-stopped
     command: ['redis-server', '--appendonly', 'yes', '--maxmemory-policy', 'noeviction']
+    networks: [data, default]
     volumes:
       - redis-data:/data
     healthcheck:
@@ -96,6 +147,7 @@ services:
   mailpit:
     image: axllent/mailpit:v1.31
     restart: unless-stopped
+    networks: [default]
     ports:
       - '${FORWARD_MAILPIT_DASHBOARD_PORT:-8026}:8025'
 
@@ -107,6 +159,7 @@ services:
       context: .
       target: browser
     profiles: ['browser']
+    networks: [default]
     user: '${HOST_UID:-1000}:${HOST_GID:-1000}'
     volumes:
       - .:/app
@@ -116,8 +169,14 @@ services:
   tools:
     <<: *node
     profiles: ['tools']
+    networks: [data, default]
     restart: 'no'
     command: ['bash']
+
+networks:
+  default:
+  # PostgreSQL lives here, out of the fetchers' reach.
+  data:
 
 volumes:
   pnpm-store:

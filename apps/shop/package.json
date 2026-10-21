@@ -4,7 +4,8 @@
   "type": "module",
   "exports": {
     "./app": "./src/app.ts",
-    "./settings": "./src/settings.ts"
+    "./settings": "./src/settings.ts",
+    "./catalogue": "./src/catalogue.ts"
   },
   "scripts": {
     "dev": "tsx watch src/server.ts",

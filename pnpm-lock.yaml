@@ -172,6 +172,9 @@ importers:
         specifier: 5.81.5
         version: 5.81.5
     devDependencies:
+      '@pennydrop/shop':
+        specifier: workspace:*
+        version: link:../shop
       tsup:
         specifier: 8.5.1
         version: 8.5.1(jiti@2.7.0)(postcss@8.5.31)(tsx@4.23.15)(typescript@6.0.3)
