@@ -271,6 +271,19 @@ describe('when checks fail', () => {
     expect(await eventKinds()).toContain('gone');
   });
 
+  it('brings a product back once its price can be read again, unless it’s paused', async () => {
+    await db.target.update({
+      where: { id: targetId },
+      data: { status: 'blocked', failureStreak: 4 },
+    });
+    await run();
+    expect(await target()).toMatchObject({ status: 'active', failureStreak: 0 });
+
+    await db.target.update({ where: { id: targetId }, data: { status: 'paused' } });
+    await run();
+    expect((await target()).status).toBe('paused');
+  });
+
   it('waits out a 429 before trying again', async () => {
     await run({ outcome: 'rate_limited', amount: null, status: 429, notBefore: NOW + 30 * MINUTE });
     expect((await target()).nextCheckAt.getTime()).toBe(NOW + 30 * MINUTE);

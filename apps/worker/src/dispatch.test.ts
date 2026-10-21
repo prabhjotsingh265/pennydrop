@@ -98,6 +98,43 @@ describe('dispatch', () => {
     expect((await dispatch(db, queues, { now: () => NOW })).dispatched).toBe(0);
   });
 
+  it('keeps checking products that need attention, and probes blocked and gone ones daily', async () => {
+    const { id } = await site('fickle.example.com');
+    const cases = [
+      ['needs_attention', 3],
+      ['blocked', 3],
+      ['gone', 5],
+      ['gone', 10],
+    ] as const;
+    for (const [status, failureStreak] of cases) {
+      const key = `${status}-${failureStreak}`;
+      await db.target.create({
+        data: {
+          siteId: id,
+          url: key,
+          canonicalUrl: key,
+          status,
+          failureStreak,
+          intervalSeconds: 3600,
+          nextCheckAt: new Date(NOW - 1000),
+        },
+      });
+    }
+    // The page gone for a week is left alone.
+    expect((await dispatch(db, queues, { now: () => NOW })).dispatched).toBe(3);
+
+    const DAY = 24 * HOUR;
+    const byKey = new Map((await db.target.findMany()).map((t) => [t.canonicalUrl, t]));
+    const slot = (key: string, every: number) => {
+      const target = byKey.get(key)!;
+      return (target.nextCheckAt.getTime() - steadyOffset(target.id, every)) % every;
+    };
+    expect(slot('needs_attention-3', HOUR)).toBe(0);
+    expect(slot('blocked-3', DAY)).toBe(0);
+    expect(slot('gone-5', DAY)).toBe(0);
+    expect(byKey.get('gone-10')!.nextCheckAt.getTime()).toBe(NOW - 1000);
+  });
+
   it('adds nothing while the queues are full', async () => {
     const { id } = await site('fickle.example.com');
     await targets(id, 5);

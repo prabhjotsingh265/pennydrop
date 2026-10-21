@@ -4,9 +4,14 @@ import type { Queue } from 'bullmq';
 import { gapFor, nextDue, stretch } from './schedule.ts';
 
 const ROBOTS_FRESH_MS = 24 * 3_600_000;
+/** Blocked and gone pages are only probed once a day. */
+const PROBE_INTERVAL_S = 86_400;
+/** Three failures make a page gone; a week of daily probes after that, and it's left alone. */
+const GONE_FOR_GOOD_STREAK = 10;
 
 interface DueRow {
   id: string;
+  status: 'active' | 'needs_attention' | 'blocked' | 'gone';
   site_id: string;
   url: string;
   interval_seconds: number;
@@ -74,12 +79,15 @@ export async function dispatch(
     async (tx) => {
       // SKIP LOCKED: two dispatchers never claim the same product, and neither waits on the other.
       const due = await tx.$queryRaw<DueRow[]>`
-        SELECT t.id, t.site_id, t.url, t.interval_seconds, t.next_check_at, t.etag, t.last_modified,
+        SELECT t.id, t.status::text AS status, t.site_id, t.url, t.interval_seconds, t.next_check_at, t.etag, t.last_modified,
                t.currency, s.host, s.min_gap_ms, s.max_in_flight, s.crawl_delay, s.needs_browser,
                s.robots_txt, s.robots_status::text AS robots_status, s.robots_fetched_at
         FROM targets t
         JOIN sites s ON s.id = t.site_id
-        WHERE t.status = 'active' AND s.policy = 'allowed' AND t.next_check_at <= ${new Date(now())}
+        WHERE s.policy = 'allowed' AND t.next_check_at <= ${new Date(now())}
+          -- Pages needing attention are still checked, so they can heal.
+          AND (t.status IN ('active', 'needs_attention', 'blocked')
+               OR (t.status = 'gone' AND t.failure_streak < ${GONE_FOR_GOOD_STREAK}))
         ORDER BY t.next_check_at
         LIMIT ${room}
         FOR UPDATE OF t SKIP LOCKED`;
@@ -89,7 +97,7 @@ export async function dispatch(
       const wanted = await tx.$queryRaw<{ site_id: string; per_hour: number }[]>`
         SELECT site_id, SUM(3600.0 / interval_seconds)::float8 AS per_hour
         FROM targets
-        WHERE status = 'active' AND site_id = ANY(${siteIds}::uuid[])
+        WHERE status IN ('active', 'needs_attention') AND site_id = ANY(${siteIds}::uuid[])
         GROUP BY site_id`;
       const recipes = await tx.$queryRaw<
         {
@@ -111,9 +119,11 @@ export async function dispatch(
       const nexts: Date[] = [];
       for (const row of due) {
         const pace = { minGapMs: row.min_gap_ms, crawlDelay: row.crawl_delay };
-        const interval = Math.round(
-          row.interval_seconds * 1000 * stretch(pace, perHour.get(row.site_id) ?? 0),
-        );
+        const seconds =
+          row.status === 'blocked' || row.status === 'gone'
+            ? Math.max(row.interval_seconds, PROBE_INTERVAL_S)
+            : row.interval_seconds;
+        const interval = Math.round(seconds * 1000 * stretch(pace, perHour.get(row.site_id) ?? 0));
         nexts.push(new Date(nextDue(row.id, interval, now())));
         const recipe = recipeFor.get(row.site_id);
         const robotsFresh =

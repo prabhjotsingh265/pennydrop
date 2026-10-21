@@ -1,4 +1,4 @@
-import type { CheckOutcome, Db, EventKind, Prisma } from '@pennydrop/db';
+import type { CheckOutcome, Db, EventKind, Prisma, TargetStatus } from '@pennydrop/db';
 import { checkJobId, type CheckReport, type FetchJob, type IngestJob } from '@pennydrop/queue';
 import type { Queue } from 'bullmq';
 import { jobOptions } from './dispatch.ts';
@@ -11,6 +11,7 @@ const CONFIRM_AFTER_MS = 120_000;
 const GIVE_UP_AFTER = 3;
 
 const SUCCESS = new Set<CheckOutcome>(['ok', 'unchanged', 'suspicious']);
+const COMES_BACK = new Set<TargetStatus>(['needs_attention', 'blocked', 'gone']);
 const RETRYABLE = new Set<CheckOutcome>([
   'timeout',
   'network_error',
@@ -235,6 +236,8 @@ export async function ingest(deps: IngestDeps, data: IngestJob): Promise<IngestR
       if (SUCCESS.has(outcome)) {
         targetUpdate.lastSuccessAt = at;
         targetUpdate.failureStreak = 0;
+        // Its price is readable again: back from needing attention, blocked or gone. A paused one stays paused.
+        if (COMES_BACK.has(target.status)) targetUpdate.status = 'active';
         if (report.etag !== undefined) targetUpdate.etag = report.etag;
         if (report.lastModified !== undefined) targetUpdate.lastModified = report.lastModified;
       } else if (report.wantsBrowser) {
