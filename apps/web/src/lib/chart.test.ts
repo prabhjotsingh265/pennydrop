@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   defaultRange,
+  spacedTicks,
   sparkDomain,
   extremes,
   rangeDomain,
@@ -69,5 +70,13 @@ describe('sparkDomain', () => {
     expect(sparkDomain([], NOW)).toEqual([NOW - 30 * DAY, NOW]);
     // Read a moment ago: still an hour wide, so the line has room.
     expect(NOW - sparkDomain([{ t: NOW - 1_000 }], NOW)[0]).toBeGreaterThan(3_600_000);
+  });
+});
+
+describe('spacedTicks', () => {
+  it('keeps tick labels far enough apart to read', () => {
+    const x = (t: number) => t * 30;
+    expect(spacedTicks([0, 1, 2, 3, 4, 5], x)).toEqual([0, 3]);
+    expect(spacedTicks([0, 3, 6], x)).toEqual([0, 3, 6]);
   });
 });

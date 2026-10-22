@@ -21,9 +21,11 @@ export function useLiveUpdates() {
       void queryClient.invalidateQueries({ queryKey: keys.watch(watchId) });
       void queryClient.invalidateQueries({ queryKey: keys.sites });
       void queryClient.invalidateQueries({ queryKey: ['checks'] });
+      void queryClient.invalidateQueries({ queryKey: keys.groups });
     });
     source.addEventListener('watches', () => {
       void queryClient.invalidateQueries({ queryKey: keys.watches });
+      void queryClient.invalidateQueries({ queryKey: keys.groups });
     });
     return () => {
       source.close();

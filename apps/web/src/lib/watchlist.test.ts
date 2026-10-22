@@ -15,6 +15,7 @@ const watch = (label: string, price: number | null, targetPrice: number | null):
   status: 'active',
   paused: false,
   isMine: false,
+  groupId: null,
   intervalSeconds: 3_600,
   lastCheckedAt: null,
   lastSuccessAt: null,

@@ -30,6 +30,8 @@ export const updateWatchSchema = z.strictObject({
   intervalSeconds: intervalSchema.optional(),
   paused: z.boolean().optional(),
   isMine: z.boolean().optional(),
+  /** The group it's compared in, or null to take it out. */
+  groupId: z.uuid().nullable().optional(),
 });
 export type UpdateWatchInput = z.input<typeof updateWatchSchema>;
 
@@ -81,6 +83,7 @@ export interface WatchSummary {
   status: WatchStatus;
   paused: boolean;
   isMine: boolean;
+  groupId: string | null;
   intervalSeconds: number;
   lastCheckedAt: string | null;
   lastSuccessAt: string | null;

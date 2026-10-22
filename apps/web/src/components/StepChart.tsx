@@ -11,6 +11,7 @@ import {
 } from 'react';
 import { useCoinPhysics } from '../lib/coin.ts';
 import { formatMoney } from '../lib/money.ts';
+import { spacedTicks } from '../lib/chart.ts';
 import { useReducedMotion } from '../lib/motion.ts';
 
 export interface PricePoint {
@@ -267,7 +268,7 @@ export function StepChart({
               </g>
             ))}
             {!compact &&
-              ticks.map((t) => (
+              spacedTicks(ticks, x).map((t) => (
                 <text
                   key={t}
                   x={x(t)}

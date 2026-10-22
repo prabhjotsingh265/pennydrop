@@ -1,6 +1,8 @@
 import { createBrowserRouter, Navigate } from 'react-router';
 import { AddPage } from './app/add/AddPage.tsx';
 import { ChecksPage } from './app/ChecksPage.tsx';
+import { ComparePage } from './app/ComparePage.tsx';
+import { GroupsPage } from './app/GroupsPage.tsx';
 import { ProductPage } from './app/product/ProductPage.tsx';
 import { RequireAuth } from './app/RequireAuth.tsx';
 import { SettingsPage } from './app/SettingsPage.tsx';
@@ -31,6 +33,8 @@ export const router = createBrowserRouter([
       { path: 'p/:id', element: <ProductPage /> },
       { path: 'sites', element: <SitesPage /> },
       { path: 'checks', element: <ChecksPage /> },
+      { path: 'groups', element: <GroupsPage /> },
+      { path: 'groups/:id', element: <ComparePage /> },
       { path: 'settings', element: <SettingsPage /> },
     ],
   },

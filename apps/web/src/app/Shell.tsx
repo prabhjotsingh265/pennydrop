@@ -116,6 +116,9 @@ export function Shell() {
             <NavLink to="/app" end className={navClass}>
               Watchlist
             </NavLink>
+            <NavLink to="/app/groups" className={navClass}>
+              Compare
+            </NavLink>
             <NavLink to="/app/sites" className={navClass}>
               Sites
             </NavLink>

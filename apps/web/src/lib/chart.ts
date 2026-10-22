@@ -79,3 +79,17 @@ export function sparkDomain(points: readonly { t: number }[], now: number): [num
   const span = Math.max(now - first, 3_600_000);
   return [now - span * 1.05, now];
 }
+
+/** Tick labels this close together would run into each other: drop the ones in between. */
+export function spacedTicks(
+  ticks: readonly number[],
+  x: (t: number) => number,
+  minGap = 70,
+): number[] {
+  const kept: number[] = [];
+  for (const t of ticks) {
+    const last = kept.at(-1);
+    if (last === undefined || x(t) - x(last) >= minGap) kept.push(t);
+  }
+  return kept;
+}

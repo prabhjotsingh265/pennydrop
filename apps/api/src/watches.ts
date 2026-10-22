@@ -33,7 +33,7 @@ export interface WatchDeps extends VetDeps {
   now?: () => number;
 }
 
-const include = {
+export const include = {
   target: { include: { site: { select: { host: true, demoAllowed: true } } } },
 } satisfies Prisma.WatchInclude;
 type WatchRow = Prisma.WatchGetPayload<{ include: typeof include }>;
@@ -59,7 +59,11 @@ export function labelFromUrl(url: string): string {
 }
 
 /** Watches as the dashboard shows them, with history since `since` (or all of it). */
-async function summarise(db: Db, rows: WatchRow[], since: Date | null): Promise<WatchSummary[]> {
+export async function summarise(
+  db: Db,
+  rows: WatchRow[],
+  since: Date | null,
+): Promise<WatchSummary[]> {
   const points = rows.length
     ? await db.pricePoint.findMany({
         where: {
@@ -92,6 +96,7 @@ async function summarise(db: Db, rows: WatchRow[], since: Date | null): Promise<
     status: (watch.paused ? 'paused' : target.status) as WatchStatus,
     paused: watch.paused,
     isMine: watch.isMine,
+    groupId: watch.groupId,
     intervalSeconds: watch.intervalSeconds,
     lastCheckedAt: iso(target.lastCheckedAt),
     lastSuccessAt: iso(target.lastSuccessAt),
@@ -415,6 +420,13 @@ export async function watchRoutes(app: FastifyInstance, deps: WatchDeps) {
     const row = await find(request.member!.workspaceId, request.params);
     if (!row) return notFound(reply);
     const changes = updateWatchSchema.parse(request.body ?? {});
+    if (changes.groupId) {
+      const group = await db.productGroup.findFirst({
+        where: { id: changes.groupId, workspaceId: row.workspaceId },
+        select: { id: true },
+      });
+      if (!group) return refuse(reply, 'groupId', 'That group isn’t in this workspace.');
+    }
     if (
       changes.intervalSeconds !== undefined &&
       changes.intervalSeconds < SHORTEST_REAL_INTERVAL &&
@@ -441,6 +453,7 @@ export async function watchRoutes(app: FastifyInstance, deps: WatchDeps) {
           intervalSeconds: changes.intervalSeconds,
           paused: changes.paused,
           isMine: changes.isMine,
+          groupId: changes.groupId,
         },
       });
       if (changes.intervalSeconds !== undefined || changes.paused !== undefined) {

@@ -8,6 +8,7 @@ import { systemLookup, type Lookup } from './addresses.ts';
 import type { Auth } from './auth.ts';
 import type { Config } from './config.ts';
 import type { LiveHub } from './live.ts';
+import { groupRoutes } from './groups.ts';
 import { previewRoutes } from './preview-routes.ts';
 import { reportRoutes } from './reports.ts';
 import type { Previews } from './previews.ts';
@@ -134,6 +135,7 @@ export function buildApp(deps: AppDeps) {
     });
     await previewRoutes(dashboard, { ...vet, previews: deps.previews });
     await reportRoutes(dashboard, { db });
+    await groupRoutes(dashboard, { db });
 
     // Live updates for the dashboard, as Server-Sent Events.
     dashboard.get('/api/events', async (request, reply) => {

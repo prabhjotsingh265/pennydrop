@@ -1,5 +1,7 @@
 import type {
   CheckFeed,
+  GroupDetail,
+  GroupSummary,
   CheckSummary,
   Me,
   PreviewView,
@@ -26,6 +28,8 @@ export const keys = {
   checks: (id: string) => ['watches', id, 'checks'] as const,
   preview: (id: string) => ['previews', id] as const,
   sites: ['sites'] as const,
+  groups: ['groups'] as const,
+  group: (id: string) => ['groups', id] as const,
   feed: (show: 'all' | 'problems') => ['checks', show] as const,
 };
 
@@ -159,6 +163,23 @@ export function useCheckFeed(show: 'all' | 'problems') {
       ),
     initialPageParam: null as string | null,
     getNextPageParam: (last) => last.next,
+    refetchInterval: poll,
+  });
+}
+
+export function useGroups() {
+  return useQuery({
+    queryKey: keys.groups,
+    queryFn: ({ signal }) =>
+      api<{ groups: GroupSummary[] }>('/api/groups', { signal }).then((data) => data.groups),
+  });
+}
+
+export function useGroup(id: string) {
+  const poll = usePollInterval();
+  return useQuery({
+    queryKey: keys.group(id),
+    queryFn: ({ signal }) => api<GroupDetail>(`/api/groups/${id}`, { signal }),
     refetchInterval: poll,
   });
 }
