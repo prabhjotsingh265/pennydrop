@@ -1,3 +1,4 @@
+import { channelKey, channelsKeyFromEnv, createMailer } from '@pennydrop/alerts';
 import { createDb } from '@pennydrop/db';
 import {
   QUEUES,
@@ -7,6 +8,14 @@ import {
   type IngestJob,
 } from '@pennydrop/queue';
 import { Queue, Worker } from 'bullmq';
+import {
+  RETRY_DELAYS_MS,
+  deliver,
+  evaluate,
+  sendSummaries,
+  type NotifyJob,
+  type SenderDeps,
+} from './alerts.ts';
 import { dispatch, type DispatchResult } from './dispatch.ts';
 import { ingest } from './ingest.ts';
 import { pruneChecks, pruneScreenshots } from './maintenance.ts';
@@ -20,6 +29,12 @@ const queues = {
 };
 const ticks = new Queue(QUEUES.dispatch, { connection });
 const chores = new Queue(QUEUES.maintenance, { connection });
+const judged = new Queue<{ pricePointId: string }>(QUEUES.alerts, { connection });
+const notify = new Queue<NotifyJob>(QUEUES.notify, { connection });
+const publish = (message: Parameters<typeof publishLive>[1]) =>
+  publishLive(connection, message).catch((error: unknown) =>
+    console.error('live update not sent:', error),
+  );
 
 // A job scheduler runs the tick once every 15 s, however many of these processes run.
 await ticks.upsertJobScheduler(
@@ -80,23 +95,94 @@ const ingester = new Worker<IngestJob>(
         priceChanged: result.priceChanged,
       }).catch((error: unknown) => console.error('live update not sent:', error));
     }
+    // A new price: the alert rules look at it, once, however often this job runs.
+    if (result.pricePointId) {
+      await judged.add(
+        'evaluate',
+        { pricePointId: result.pricePointId },
+        {
+          jobId: `evaluate-${result.pricePointId}`,
+          removeOnComplete: { age: 86_400 },
+          removeOnFail: { age: 7 * 86_400 },
+        },
+      );
+    }
     return result;
   },
   { connection, concurrency: 10 },
 );
 ingester.on('failed', (job, error) => console.error(`ingest ${job?.id} failed:`, error.message));
 
+// Alerts: the rules judge each new price, and each delivery is sent and retried on its own.
+const localShop = process.env.LOCAL_SHOP_HOST;
+const mail = createMailer({
+  from: process.env.MAIL_FROM || 'Pennydrop <hello@pennydrop.test>',
+  mailpitUrl: process.env.MAILPIT_URL || undefined,
+  resendKey: process.env.RESEND_API_KEY || undefined,
+});
+const sender: SenderDeps = {
+  db,
+  key: channelKey(channelsKeyFromEnv()),
+  appUrl: process.env.APP_URL || 'http://localhost:3000',
+  mail,
+  publish,
+  send: {
+    mail,
+    userAgent: 'Pennydrop/1.0 (+alerts)',
+    // Development: the practice shop's catcher answers for *.localhost. Elsewhere, public addresses only.
+    guard: localShop
+      ? {
+          allowPrivate: (host) => host.endsWith('.localhost'),
+          resolveAs: (host) => (host.endsWith('.localhost') ? localShop : undefined),
+        }
+      : {},
+  },
+};
+const judge = new Worker<{ pricePointId: string }>(
+  QUEUES.alerts,
+  (job) => evaluate({ db, notify, publish }, job.data.pricePointId),
+  { connection, concurrency: 5 },
+);
+judge.on('failed', (job, error) =>
+  console.error(`alert rules for ${job?.id} failed:`, error.message),
+);
+
+await notify.upsertJobScheduler('summaries', { every: 60_000 }, { name: 'summaries' });
+const notifier = new Worker<NotifyJob>(
+  QUEUES.notify,
+  (job) =>
+    job.name === 'summaries' ? sendSummaries(sender) : deliver(sender, job.data.deliveryId),
+  {
+    connection,
+    concurrency: 10,
+    // About 1, 3, 8, 15 and 30 minutes between tries: an hour, all told.
+    settings: {
+      backoffStrategy: (attemptsMade: number) =>
+        RETRY_DELAYS_MS[Math.min(attemptsMade, RETRY_DELAYS_MS.length) - 1] ?? RETRY_DELAYS_MS[0]!,
+    },
+  },
+);
+notifier.on('failed', (job, error) => console.error(`delivery ${job?.id} failed:`, error.message));
+
 console.log('Worker running: dispatching every 15 s, recording results.');
 
 for (const signal of ['SIGINT', 'SIGTERM'] as const) {
   process.once(signal, () => {
     void (async () => {
-      await Promise.all([dispatcher.close(), ingester.close(), maintainer.close()]);
+      await Promise.all([
+        dispatcher.close(),
+        ingester.close(),
+        maintainer.close(),
+        judge.close(),
+        notifier.close(),
+      ]);
       await Promise.all([
         ticks.close(),
         chores.close(),
         queues.http.close(),
         queues.browser.close(),
+        judged.close(),
+        notify.close(),
       ]);
       await db.$disconnect();
       await connection.quit();

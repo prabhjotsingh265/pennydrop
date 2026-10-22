@@ -489,6 +489,8 @@ model Alert {
   currency      String?         @db.Char(3)
   /// Why it fired, in words, fixed at the time.
   reasons       String[]
+  /// The price was a big jump, so a second check confirmed it before anyone was told.
+  verified      Boolean         @default(false)
   firedAt       DateTime        @default(now()) @map("fired_at") @db.Timestamptz
   readAt        DateTime?       @map("read_at") @db.Timestamptz
 

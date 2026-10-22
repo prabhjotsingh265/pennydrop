@@ -14,6 +14,8 @@ export interface AlertContent {
   kinds: RuleKind[];
   /** Ready-made words for each rule met. */
   reasons: string[];
+  /** A big jump, confirmed by a second check before anyone was told. */
+  verified?: boolean;
   firedAt: string;
 }
 
@@ -64,13 +66,21 @@ export interface Message {
 
 const COPPER = 0xd77f3d;
 
+/** "At or below…" reads "at or below…" mid-sentence; a quoted name keeps its capitals. */
+const lowerFirst = (text: string) => text.charAt(0).toLowerCase() + text.slice(1);
+
 /** One alert as an email, a Slack message, a Discord embed and a webhook body. */
 export function compose(alert: AlertContent): Message {
   const price = alert.price === null ? 'no price' : formatMoney(alert.price, alert.currency);
   const headline = `${alert.label}: ${price}`;
-  const lines = alert.reasons.map((reason) => `• ${reason}`).join('\n');
+  const lines = [
+    ...alert.reasons,
+    ...(alert.verified ? ['Verified twice: a change this big is always checked again'] : []),
+  ]
+    .map((line) => `• ${line}`)
+    .join('\n');
   return {
-    subject: `${headline} (${alert.reasons[0]?.toLowerCase() ?? 'price alert'})`,
+    subject: `${headline} (${alert.reasons[0] ? lowerFirst(alert.reasons[0]) : 'price alert'})`,
     text: `${headline} at ${alert.host}\n\n${lines}\n\nSee it in Pennydrop: ${alert.link}\nThe shop’s page: ${alert.url}\n`,
     slack: { text: `*<${alert.link}|${headline}>* at ${alert.host}\n${lines}` },
     discord: {
@@ -94,6 +104,7 @@ export function compose(alert: AlertContent): Message {
           : { amount: alert.price, currency: alert.currency, display: price },
       rules: alert.kinds,
       reasons: alert.reasons,
+      verified: alert.verified ?? false,
       firedAt: alert.firedAt,
     },
   };

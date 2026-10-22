@@ -210,6 +210,9 @@ importers:
 
   apps/worker:
     dependencies:
+      '@pennydrop/alerts':
+        specifier: workspace:*
+        version: link:../../packages/alerts
       '@pennydrop/db':
         specifier: workspace:*
         version: link:../../packages/db

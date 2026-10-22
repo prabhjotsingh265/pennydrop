@@ -1,4 +1,12 @@
-export { channelKey, newSigningSecret, open, seal, sign, verify } from './crypto.ts';
+export {
+  channelKey,
+  channelsKeyFromEnv,
+  newSigningSecret,
+  open,
+  seal,
+  sign,
+  verify,
+} from './crypto.ts';
 export { createMailer, type Email, type MailSettings, type Mailer } from './mail.ts';
 export {
   REARM_MARGIN,

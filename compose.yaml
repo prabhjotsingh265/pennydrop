@@ -74,6 +74,8 @@ services:
     # owned by your user (a root-owned volume would refuse the fetcher's writes).
     environment:
       SCREENSHOT_DIR: /app/.data/screenshots
+      # Development: alerts may go to the practice shop's catcher at *.localhost.
+      LOCAL_SHOP_HOST: shop
     networks: [data, default]
     depends_on:
       postgres:

@@ -247,6 +247,7 @@ export async function alertRoutes(app: FastifyInstance, { db, config, mail }: Al
       previousPrice: a.previousPrice === null ? null : Number(a.previousPrice),
       currency: a.currency,
       reasons: a.reasons,
+      verified: a.verified,
       firedAt: a.firedAt.toISOString(),
       readAt: a.readAt?.toISOString() ?? null,
       deliveries: a.deliveries.map((d) => ({

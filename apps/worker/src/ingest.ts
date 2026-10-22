@@ -33,6 +33,8 @@ export interface IngestResult {
   outcome: CheckOutcome;
   /** A new price point was written. */
   priceChanged: boolean;
+  /** The new price point, for the alert rules to look at. */
+  pricePointId: string | null;
   events: EventKind[];
 }
 
@@ -40,9 +42,10 @@ type Reading = { price: bigint; was: bigint | null; currency: string; inStock: b
 
 const big = (value: number | null) => (value === null ? null : BigInt(value));
 
-function isSuspicious(
+/** A move of more than half, or a new currency: believed only when a second check sees it too. */
+export function isSuspicious(
   last: { price: bigint | null; currency: string } | null,
-  reading: Reading,
+  reading: { price: bigint; currency: string },
 ): boolean {
   if (!last || last.price === null) return false;
   if (last.currency !== reading.currency) return true;
@@ -69,9 +72,21 @@ export async function ingest(deps: IngestDeps, data: IngestJob): Promise<IngestR
         include: { site: true },
       });
       if (!target)
-        return { recorded: false, outcome: report.outcome, priceChanged: false, events: [] };
+        return {
+          recorded: false,
+          outcome: report.outcome,
+          priceChanged: false,
+          pricePointId: null,
+          events: [],
+        };
       if (await tx.check.findUnique({ where: { jobId: data.checkJobId }, select: { id: true } })) {
-        return { recorded: false, outcome: report.outcome, priceChanged: false, events: [] };
+        return {
+          recorded: false,
+          outcome: report.outcome,
+          priceChanged: false,
+          pricePointId: null,
+          events: [],
+        };
       }
 
       const at = new Date(report.finishedAt);
@@ -313,8 +328,9 @@ export async function ingest(deps: IngestDeps, data: IngestJob): Promise<IngestR
           where: { id: pointUpdate.id },
           data: { lastSeenAt: pointUpdate.lastSeenAt },
         });
+      let pricePointId: string | null = null;
       if (newPoint) {
-        await tx.pricePoint.create({
+        ({ id: pricePointId } = await tx.pricePoint.create({
           data: {
             targetId: target.id,
             firstSeenAt: at,
@@ -326,7 +342,8 @@ export async function ingest(deps: IngestDeps, data: IngestJob): Promise<IngestR
             firstCheckId: check.id,
             replayed: job.reason === 'replay',
           },
-        });
+          select: { id: true },
+        }));
       }
       if (recipeChange.retire) {
         await tx.recipe.update({
@@ -360,7 +377,13 @@ export async function ingest(deps: IngestDeps, data: IngestJob): Promise<IngestR
           })),
         });
       }
-      return { recorded: true, outcome, priceChanged, events: events.map((e) => e.kind) };
+      return {
+        recorded: true,
+        outcome,
+        priceChanged,
+        pricePointId,
+        events: events.map((e) => e.kind),
+      };
     },
     { timeout: 30_000 },
   );

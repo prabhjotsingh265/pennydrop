@@ -7,6 +7,17 @@ import {
   timingSafeEqual,
 } from 'node:crypto';
 
+/**
+ * The CHANNELS_KEY secret, which the API (sealing) and the worker (opening)
+ * must share. In development a fixed one is used; in production it must be set.
+ */
+export function channelsKeyFromEnv(env: NodeJS.ProcessEnv = process.env): string {
+  const key = env.CHANNELS_KEY || (env.NODE_ENV === 'production' ? undefined : DEV_CHANNELS_KEY);
+  if (!key) throw new Error('CHANNELS_KEY must be set in production.');
+  return key;
+}
+const DEV_CHANNELS_KEY = 'development-only-channels-key-not-for-production';
+
 /** A 256-bit key for channel settings, derived from the CHANNELS_KEY secret. */
 export function channelKey(secret: string): Buffer {
   return Buffer.from(hkdfSync('sha256', secret, 'pennydrop', 'channel settings', 32));

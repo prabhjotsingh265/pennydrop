@@ -68,6 +68,12 @@ export class LiveHub {
       }
       return;
     }
+    if (message.type === 'alert') {
+      for (const connection of this.#connections) {
+        if (connection.workspaceId === message.workspaceId) connection.send('alert', {});
+      }
+      return;
+    }
     // The watchlist changed: learn its pages again, then say so.
     const affected = [...this.#connections].filter((c) => c.workspaceId === message.workspaceId);
     if (!affected.length) return;

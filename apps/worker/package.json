@@ -11,6 +11,7 @@
     "seed": "tsx src/seed.ts"
   },
   "dependencies": {
+    "@pennydrop/alerts": "workspace:*",
     "@pennydrop/db": "workspace:*",
     "@pennydrop/queue": "workspace:*",
     "bullmq": "5.81.5"

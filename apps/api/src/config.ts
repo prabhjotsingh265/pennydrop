@@ -1,3 +1,5 @@
+import { channelsKeyFromEnv } from '@pennydrop/alerts';
+
 export interface Config {
   /** Where people open the app; links in emails point here. */
   appUrl: string;
@@ -19,10 +21,7 @@ export function configFromEnv(env: NodeJS.ProcessEnv = process.env): Config {
   const authSecret =
     env.AUTH_SECRET || (production ? undefined : 'development-only-secret-not-for-production');
   if (!authSecret) throw new Error('AUTH_SECRET must be set in production.');
-  const channelsKey =
-    env.CHANNELS_KEY ||
-    (production ? undefined : 'development-only-channels-key-not-for-production');
-  if (!channelsKey) throw new Error('CHANNELS_KEY must be set in production.');
+  const channelsKey = channelsKeyFromEnv(env);
   return {
     appUrl: env.APP_URL || 'http://localhost:3000',
     authSecret,

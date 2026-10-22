@@ -14,6 +14,10 @@ export const QUEUES = {
   maintenance: 'maintenance',
   /** Someone adding a product: a screenshot with every price boxed. Runs on the browser fetcher. */
   preview: 'preview',
+  /** New price points, for the alert rules to judge. */
+  alerts: 'alerts',
+  /** One alert to one channel; and, every minute, the summaries of what was held back. */
+  notify: 'notify',
 } as const;
 
 export type CheckOutcome =

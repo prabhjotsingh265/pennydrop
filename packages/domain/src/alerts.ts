@@ -93,6 +93,8 @@ export interface AlertSummary {
   currency: string | null;
   /** Words for each rule met, ready to show: "Below your £55.00 target". */
   reasons: string[];
+  /** A big jump, confirmed by a second check first. */
+  verified: boolean;
   firedAt: string;
   readAt: string | null;
   deliveries: { channel: string; kind: ChannelKind; status: DeliveryStatus }[];
