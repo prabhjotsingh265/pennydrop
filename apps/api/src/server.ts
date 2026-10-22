@@ -12,6 +12,7 @@ import { Queue } from 'bullmq';
 import { buildApp } from './app.ts';
 import { createAuth } from './auth.ts';
 import { configFromEnv } from './config.ts';
+import { redisLimiter } from './limits.ts';
 import { LiveHub } from './live.ts';
 
 import { queuePreviews } from './previews.ts';
@@ -52,7 +53,9 @@ const publish = (message: LiveMessage) =>
     console.error('live update not sent:', error),
   );
 
-const app = buildApp({ db, auth, config, wake, previews, live, publish, mail });
+const limiter = redisLimiter(connection);
+
+const app = buildApp({ db, auth, config, wake, previews, live, publish, mail, limiter });
 const port = Number(process.env.API_PORT ?? 3001);
 
 // Finish in-flight requests before exiting when Docker stops the container.

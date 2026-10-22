@@ -5,6 +5,7 @@ import { resetDatabase, testDb } from '@pennydrop/db/testing';
 import { vi } from 'vitest';
 import type { Lookup } from '../src/addresses.ts';
 import { buildApp } from '../src/app.ts';
+import { unlimited, type Limiter } from '../src/limits.ts';
 import { createAuth } from '../src/auth.ts';
 import { LiveHub } from '../src/live.ts';
 import type { Config } from '../src/config.ts';
@@ -14,7 +15,7 @@ import { FakePreviews } from './fake-previews.ts';
 export const APP_URL = 'http://localhost:3000';
 
 /** The API wired to its test database, with emails kept in memory instead of sent. */
-export function harness() {
+export function harness({ limiter = unlimited }: { limiter?: Limiter } = {}) {
   const db = testDb('api');
   const sent: Email[] = [];
   const config: Config = {
@@ -24,6 +25,7 @@ export function harness() {
     localShops: false,
     channelsKey: 'test-channels-key',
     screenshotDir: mkdtempSync(join(tmpdir(), 'pennydrop-api-shots-')),
+    trustProxy: false,
   };
   const wake = vi.fn(async () => {});
   // No real DNS in tests: names resolve to a public documentation address unless told otherwise.
@@ -48,6 +50,7 @@ export function harness() {
     live,
     publish,
     mail,
+    limiter,
     lookup,
     logger: false,
   });

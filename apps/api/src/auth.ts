@@ -96,6 +96,8 @@ export function createAuth({ db, mail, config }: { db: Db; mail: Mailer; config:
       },
     },
     session: { expiresIn: 30 * DAY, updateAge: DAY },
+    // Counted in limits.ts instead: in Redis, shared by every process, the same in development.
+    rateLimit: { enabled: false },
     advanced: {
       cookiePrefix: 'pennydrop',
       useSecureCookies: config.appUrl.startsWith('https://'),

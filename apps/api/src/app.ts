@@ -11,6 +11,7 @@ import { alertRoutes } from './alerts.ts';
 import type { Config } from './config.ts';
 import type { LiveHub } from './live.ts';
 import { groupRoutes } from './groups.ts';
+import { limitHook, type Limiter } from './limits.ts';
 import { previewRoutes } from './preview-routes.ts';
 import { reportRoutes } from './reports.ts';
 import type { Previews } from './previews.ts';
@@ -42,6 +43,8 @@ export interface AppDeps {
   /** Open dashboards on this process, and how to tell every process about a change. */
   live: LiveHub;
   publish: (message: LiveMessage) => Promise<void>;
+  /** Counts tries at sign-in, sign-up, "check now" and the like (`limits.ts`). */
+  limiter: Limiter;
   lookup?: Lookup;
   now?: () => number;
   logger?: boolean;
@@ -51,10 +54,16 @@ const SAFE = new Set(['GET', 'HEAD', 'OPTIONS']);
 
 export function buildApp(deps: AppDeps) {
   const { db, auth, config } = deps;
-  const app = Fastify({ logger: deps.logger ?? process.env.NODE_ENV !== 'test' });
+  const app = Fastify({
+    logger: deps.logger ?? process.env.NODE_ENV !== 'test',
+    trustProxy: config.trustProxy,
+  });
   const appOrigin = new URL(config.appUrl).origin;
 
   app.get('/api/health', async () => ({ status: 'ok' }));
+
+  // Signing in and up are counted per address, before anything else happens.
+  app.addHook('onRequest', limitHook(deps.limiter, 'ip'));
 
   // Better Auth handles sign-up, sign-in, sessions and email confirmation.
   app.route({
@@ -103,6 +112,8 @@ export function buildApp(deps: AppDeps) {
         role: membership.role,
       };
     });
+    // Then the costly actions are counted per person.
+    dashboard.addHook('preHandler', limitHook(deps.limiter, 'user'));
 
     const me = async (member: Member): Promise<Me> => {
       const workspace = await db.workspace.findUniqueOrThrow({ where: { id: member.workspaceId } });

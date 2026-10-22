@@ -3,7 +3,7 @@ import { MIN_PASSWORD_LENGTH, signUpSchema, type SignUpInput } from '@pennydrop/
 import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { Link, useNavigate } from 'react-router';
-import { authClient } from '../lib/auth-client.ts';
+import { authClient, tooManyTries } from '../lib/auth-client.ts';
 import { Button } from '../ui/Button.tsx';
 import { Field } from '../ui/Field.tsx';
 import { Notice } from '../ui/Notice.tsx';
@@ -11,19 +11,21 @@ import { AuthLayout } from './AuthLayout.tsx';
 
 export function SignUp() {
   const navigate = useNavigate();
-  const [failed, setFailed] = useState(false);
+  const [failed, setFailed] = useState<string | null>(null);
   const form = useForm<SignUpInput>({ resolver: zodResolver(signUpSchema) });
   const { errors, isSubmitting } = form.formState;
 
   const onSubmit = form.handleSubmit(async (input) => {
-    setFailed(false);
+    setFailed(null);
     const { error } = await authClient.signUp.email({ ...input, callbackURL: '/app' });
     if (error?.code?.startsWith('USER_ALREADY_EXISTS')) {
       form.setError('email', { message: 'There’s already an account with this email.' });
       return;
     }
     if (error) {
-      setFailed(true);
+      setFailed(
+        tooManyTries(error) ?? 'We couldn’t create your account just now. Please try again.',
+      );
       return;
     }
     navigate('/signup/sent', { state: { email: input.email } });
@@ -32,9 +34,7 @@ export function SignUp() {
   return (
     <AuthLayout title="Create your account">
       <form onSubmit={onSubmit} noValidate className="space-y-5">
-        {failed && (
-          <Notice tone="error">We couldn’t create your account just now. Please try again.</Notice>
-        )}
+        {failed && <Notice tone="error">{failed}</Notice>}
         <Field
           label="Name"
           autoComplete="name"

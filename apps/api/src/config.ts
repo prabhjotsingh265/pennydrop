@@ -13,6 +13,20 @@ export interface Config {
   localShopHost?: string;
   /** Seals channel settings (webhook addresses, signing secrets). Must be set in production. */
   channelsKey: string;
+  /**
+   * Which proxies in front of the API to believe about a visitor's address
+   * (X-Forwarded-For), as Fastify's `trustProxy` takes it. Off by default:
+   * believing it without a proxy would let anyone pick their own address.
+   */
+  trustProxy: boolean | string[];
+}
+
+/** TRUST_PROXY: "true", or a comma-separated list of addresses, ranges or names such as "loopback". */
+export function trustProxyFrom(value: string | undefined): Config['trustProxy'] {
+  const text = value?.trim() ?? '';
+  if (!text || text === 'false') return false;
+  if (text === 'true') return true;
+  return text.split(',').map((part) => part.trim());
 }
 
 export function configFromEnv(env: NodeJS.ProcessEnv = process.env): Config {
@@ -34,5 +48,6 @@ export function configFromEnv(env: NodeJS.ProcessEnv = process.env): Config {
     screenshotDir: env.SCREENSHOT_DIR || undefined,
     localShopHost: env.LOCAL_SHOP_HOST || undefined,
     channelsKey,
+    trustProxy: trustProxyFrom(env.TRUST_PROXY),
   };
 }

@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Link } from 'react-router';
-import { authClient } from '../lib/auth-client.ts';
+import { authClient, tooManyTries } from '../lib/auth-client.ts';
 import { Button } from '../ui/Button.tsx';
 import { Field } from '../ui/Field.tsx';
 import { Notice } from '../ui/Notice.tsx';
@@ -10,10 +10,12 @@ import { AuthLayout } from './AuthLayout.tsx';
 export function Forgot() {
   const [email, setEmail] = useState('');
   const [state, setState] = useState<'idle' | 'sending' | 'sent' | 'failed'>('idle');
+  const [wait, setWait] = useState<string | null>(null);
 
   const send = async () => {
     setState('sending');
     const { error } = await authClient.requestPasswordReset({ email, redirectTo: '/reset' });
+    setWait(tooManyTries(error));
     setState(error ? 'failed' : 'sent');
   };
 
@@ -34,7 +36,9 @@ export function Forgot() {
           }}
         >
           {state === 'failed' && (
-            <Notice tone="error">That didn’t go through. Please try again in a moment.</Notice>
+            <Notice tone="error">
+              {wait ?? 'That didn’t go through. Please try again in a moment.'}
+            </Notice>
           )}
           <Field
             label="Email"

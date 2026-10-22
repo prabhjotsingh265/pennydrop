@@ -4,7 +4,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { Link, useLocation, useNavigate, useSearchParams } from 'react-router';
-import { authClient } from '../lib/auth-client.ts';
+import { authClient, tooManyTries } from '../lib/auth-client.ts';
 import { fetchMe, keys } from '../lib/queries.ts';
 import { safeNext } from '../lib/time.ts';
 import { Button } from '../ui/Button.tsx';
@@ -19,6 +19,7 @@ export function SignIn() {
   // A message carried over from where they came from: a new password, a deleted account.
   const carried = (useLocation().state as { notice?: string } | null)?.notice;
   const [problem, setProblem] = useState<'wrong' | 'unconfirmed' | 'other' | null>(null);
+  const [wait, setWait] = useState<string | null>(null);
   const [resent, setResent] = useState(false);
   const form = useForm<SignInInput>({ resolver: zodResolver(signInSchema) });
   const { errors, isSubmitting } = form.formState;
@@ -26,6 +27,7 @@ export function SignIn() {
   const onSubmit = form.handleSubmit(async ({ email, password }) => {
     setProblem(null);
     const { error } = await authClient.signIn.email({ email, password });
+    setWait(tooManyTries(error));
     if (error) {
       setProblem(
         error.code === 'EMAIL_NOT_VERIFIED'
@@ -74,7 +76,9 @@ export function SignIn() {
           </Notice>
         )}
         {problem === 'other' && (
-          <Notice tone="error">We couldn’t sign you in just now. Please try again.</Notice>
+          <Notice tone="error">
+            {wait ?? 'We couldn’t sign you in just now. Please try again.'}
+          </Notice>
         )}
         <Field
           label="Email"
