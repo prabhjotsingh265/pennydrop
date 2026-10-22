@@ -68,24 +68,78 @@ export const DEFAULTS: Record<ShopName, ShopSettings> = {
   brittle: { ...HEALTHY, errorRate: 0.3, rateLimitRate: 0.1, blockRate: 0.05, crawlDelay: 2 },
 };
 
-/** Each shop's current settings, changed through the chaos controls. Kept in memory. */
-export class SettingsStore {
-  #current = new Map<ShopName, ShopSettings>();
+/** Where a request landed: one of the three shops, or a demo visitor's own copy of Fickle. */
+export interface Place {
+  shop: ShopName;
+  /** The sandbox's token, for `sandbox-<token>.…` hosts. */
+  sandbox: string | null;
+}
 
-  get(shop: ShopName): ShopSettings {
-    return this.#current.get(shop) ?? DEFAULTS[shop];
+const SANDBOX = /^sandbox-([a-z0-9]{8,40})$/;
+
+export function placeFor(hostname: string): Place {
+  const sandbox = SANDBOX.exec(hostname.split('.')[0] ?? '')?.[1] ?? null;
+  return { shop: sandbox ? 'fickle' : shopFor(hostname), sandbox };
+}
+
+/** A sandbox nobody has changed for this long is forgotten: it's back to Fickle's defaults. */
+export const SANDBOX_KEEP_MS = 2 * 86_400_000;
+/** And at most this many are remembered; past it, the longest untouched go first. */
+export const MAX_SANDBOXES = 10_000;
+
+/**
+ * Each shop's current settings, changed through the chaos controls, and each
+ * sandbox's. Kept in memory: only what someone changed, so a sandbox nobody
+ * touched costs nothing.
+ */
+export class SettingsStore {
+  #shops = new Map<ShopName, ShopSettings>();
+  /** In order of last change, oldest first. */
+  #sandboxes = new Map<string, { settings: ShopSettings; touched: number }>();
+  readonly #now: () => number;
+
+  constructor(now: () => number = Date.now) {
+    this.#now = now;
+  }
+
+  get(where: ShopName | Place): ShopSettings {
+    if (typeof where === 'string') return this.#shops.get(where) ?? DEFAULTS[where];
+    if (!where.sandbox) return this.get(where.shop);
+    return this.#sandboxes.get(where.sandbox)?.settings ?? DEFAULTS[where.shop];
   }
 
   /** Applies a partial change; anything invalid is refused whole. */
-  update(shop: ShopName, patch: unknown): ShopSettings {
+  update(where: ShopName | Place, patch: unknown): ShopSettings {
     const changes = z.record(z.string(), z.unknown()).parse(patch);
-    const next = settingsSchema.parse({ ...this.get(shop), ...changes });
-    this.#current.set(shop, next);
+    const next = settingsSchema.parse({ ...this.get(where), ...changes });
+    const sandbox = typeof where === 'string' ? null : where.sandbox;
+    if (!sandbox) {
+      this.#shops.set(typeof where === 'string' ? where : where.shop, next);
+      return next;
+    }
+    this.#sandboxes.delete(sandbox);
+    this.#sandboxes.set(sandbox, { settings: next, touched: this.#now() });
+    // The oldest come first, so forgetting stops at the first one still wanted.
+    const stale = this.#now() - SANDBOX_KEEP_MS;
+    for (const [token, entry] of this.#sandboxes) {
+      if (entry.touched >= stale && this.#sandboxes.size <= MAX_SANDBOXES) break;
+      this.#sandboxes.delete(token);
+    }
     return next;
   }
 
-  reset(shop: ShopName): ShopSettings {
-    this.#current.delete(shop);
-    return DEFAULTS[shop];
+  reset(where: ShopName | Place): ShopSettings {
+    if (typeof where === 'string' || !where.sandbox) {
+      const shop = typeof where === 'string' ? where : where.shop;
+      this.#shops.delete(shop);
+      return DEFAULTS[shop];
+    }
+    this.#sandboxes.delete(where.sandbox);
+    return DEFAULTS[where.shop];
+  }
+
+  /** How many sandboxes are remembered. */
+  get sandboxes(): number {
+    return this.#sandboxes.size;
   }
 }

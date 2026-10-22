@@ -15,7 +15,7 @@ import {
 import { productPage, type Listed } from './pages/product.ts';
 import { formatPence, quote } from './prices.ts';
 import { REPLAY_AT, REPLAY_SIGNATURE, replayAsk } from './replay.ts';
-import { DEFAULTS, SHOPS, SettingsStore, shopFor } from './settings.ts';
+import { DEFAULTS, SHOPS, SettingsStore, placeFor } from './settings.ts';
 
 export interface ShopOptions {
   now?: () => number;
@@ -44,9 +44,11 @@ export function buildShop(options: ShopOptions = {}) {
 
   // A replay sees the shop as it was: its usual layout and its prices then, with no chaos.
   const context = (req: Request, res: Response) => {
-    const shop = shopFor(req.hostname);
+    // A sandbox is a private copy of Fickle: its pages, its prices, its own chaos.
+    const place = placeFor(req.hostname);
+    const { shop } = place;
     const replayAt = res.locals.replayAt as number | undefined;
-    const settings = replayAt === undefined ? store.get(shop) : DEFAULTS[shop];
+    const settings = replayAt === undefined ? store.get(place) : DEFAULTS[shop];
     const priced = (product: Product): Listed => ({
       product,
       quote: quote(product, replayAt ?? now(), settings),

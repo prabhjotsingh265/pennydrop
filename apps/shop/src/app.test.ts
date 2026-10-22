@@ -5,7 +5,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 import { buildShop, type ShopOptions } from './app.ts';
 import { findProduct } from './catalogue.ts';
 import { DAY, OPENED, formatPence, quote } from './prices.ts';
-import { DEFAULTS } from './settings.ts';
+import { DEFAULTS, MAX_SANDBOXES, SANDBOX_KEEP_MS, SettingsStore, placeFor } from './settings.ts';
 
 const NOW = OPENED + 120 * DAY + 3_600_000;
 
@@ -181,6 +181,52 @@ describe('the practice shop', () => {
     const art = await get('/art/stoneware-mug.svg');
     expect(art.headers['content-type']).toContain('image/svg+xml');
     expect(art.body).toContain('<svg');
+  });
+});
+
+describe('sandboxes', () => {
+  it('serves a private copy of Fickle at sandbox-<token> hosts, with its own chaos', async () => {
+    const get = await start();
+    const mine = 'sandbox-a1b2c3d4';
+    const page = await get('/p/stoneware-mug', { host: mine });
+    expect(page.body).toContain(`<span class="price-now">${price}</span>`);
+    await get('/_chaos/state', {
+      host: mine,
+      method: 'PUT',
+      body: { ...fast, layout: 'redesign' },
+    });
+    expect((await get('/p/stoneware-mug', { host: mine })).body).not.toContain('price-now');
+    // Fickle itself and every other sandbox are untouched.
+    expect((await get('/p/stoneware-mug')).body).toContain('price-now');
+    expect((await get('/p/stoneware-mug', { host: 'sandbox-e5f6a7b8' })).body).toContain(
+      'price-now',
+    );
+    await get('/_chaos/reset', { host: mine, method: 'POST' });
+    expect((await get('/p/stoneware-mug', { host: mine })).body).toContain('price-now');
+  });
+
+  it('knows a sandbox by its host, and anything else as one of the three shops', () => {
+    expect(placeFor('sandbox-a1b2c3d4.localhost')).toEqual({ shop: 'fickle', sandbox: 'a1b2c3d4' });
+    expect(placeFor('brittle.localhost')).toEqual({ shop: 'brittle', sandbox: null });
+    // Too short to be one of ours.
+    expect(placeFor('sandbox-x.localhost')).toEqual({ shop: 'fickle', sandbox: null });
+  });
+
+  it('forgets a sandbox untouched for two days, and keeps no more than the cap', () => {
+    let now = 0;
+    const store = new SettingsStore(() => now);
+    const sandbox = (token: string) => ({ shop: 'fickle' as const, sandbox: token });
+    store.update(sandbox('old'), { stock: 'out' });
+    now = SANDBOX_KEEP_MS + 1;
+    store.update(sandbox('new'), { stock: 'out' });
+    expect(store.get(sandbox('old')).stock).toBe('auto');
+    expect(store.get(sandbox('new')).stock).toBe('out');
+    // The three shops are never forgotten.
+    store.update('fickle', { stock: 'out' });
+    for (let i = 0; i < MAX_SANDBOXES + 5; i++) store.update(sandbox(`s${i}`), { sale: 'on' });
+    expect(store.sandboxes).toBe(MAX_SANDBOXES);
+    expect(store.get(sandbox('s0')).sale).toBe('auto');
+    expect(store.get('fickle').stock).toBe('out');
   });
 });
 

@@ -1,7 +1,7 @@
 import { timingSafeEqual } from 'node:crypto';
 import express, { type Request, type Router } from 'express';
 import { chaosPage } from './pages/other.ts';
-import { shopFor, type SettingsStore } from './settings.ts';
+import { placeFor, type SettingsStore } from './settings.ts';
 
 function sameToken(given: unknown, expected: string): boolean {
   if (typeof given !== 'string') return false;
@@ -43,10 +43,11 @@ export function chaosRoutes(store: SettingsStore, token: string | undefined): Ro
     res.status(404).type('text').send('Not found');
   });
 
-  const shop = (req: Request) => shopFor(req.hostname);
+  // On a sandbox's host, these change that sandbox alone.
+  const shop = (req: Request) => placeFor(req.hostname);
 
   router.get('/', (req, res) => {
-    res.type('html').send(chaosPage(shop(req), store.get(shop(req)), token));
+    res.type('html').send(chaosPage(shop(req).shop, store.get(shop(req)), token));
   });
 
   router.post('/', (req, res) => {
