@@ -6,7 +6,7 @@ import type { Job } from 'bullmq';
 import { afterAll, describe, expect, it } from 'vitest';
 import type { PriceBox } from './boxes.ts';
 import type { CheckResult, createChecker } from './check.ts';
-import { choicesFrom, createPreviewProcessor, titleFrom } from './preview.ts';
+import { canonicalFrom, choicesFrom, createPreviewProcessor, titleFrom } from './preview.ts';
 
 const PAGE = `<!doctype html><html><head><title>Stoneware mug | Fickle</title></head><body>
 <main>
@@ -82,6 +82,25 @@ describe('choicesFrom', () => {
     const { choices } = choicesFrom(PAGE, BOXES, null, 2_000);
     expect(choices).toHaveLength(3);
     expect(choices.some((c) => c.best)).toBe(false);
+  });
+});
+
+describe('canonicalFrom', () => {
+  const page = (href: string) =>
+    `<html><head><link rel="canonical" href="${href}"></head><body></body></html>`;
+  it('follows the page’s own address when it stays on the same site', () => {
+    expect(
+      canonicalFrom(page('/p/mug'), 'https://shop.example.com/p/mug?colour=blue&ref=mail'),
+    ).toBe('https://shop.example.com/p/mug');
+  });
+  it('ignores one on another site, or none at all', () => {
+    expect(
+      canonicalFrom(page('https://elsewhere.example.com/p/mug'), 'https://shop.example.com/p/mug'),
+    ).toBeNull();
+    expect(canonicalFrom(page('javascript:alert(1)'), 'https://shop.example.com/p/mug')).toBeNull();
+    expect(
+      canonicalFrom('<html><body></body></html>', 'https://shop.example.com/p/mug'),
+    ).toBeNull();
   });
 });
 

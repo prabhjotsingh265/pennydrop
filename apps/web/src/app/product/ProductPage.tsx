@@ -9,13 +9,14 @@ import {
   RANGES,
   defaultRange,
   extremes,
+  historyStats,
   rangeDomain,
   soldOutBands,
   stepPoints,
   timeTicks,
   type RangeKey,
 } from '../../lib/chart.ts';
-import { chartFlag } from '../../lib/events.ts';
+import { chartFlag, isGoodOutcome } from '../../lib/events.ts';
 import { formatMoney } from '../../lib/money.ts';
 import { useChecks, useMe, useWatch, useWatchActions } from '../../lib/queries.ts';
 import { ago, dateWords, every, targetStep, useNow } from '../../lib/time.ts';
@@ -83,6 +84,7 @@ function Product({
   const target = dragTarget ?? watch.targetPrice;
   const domain = rangeDomain(range, watch.history, now);
   const span = extremes(points, domain);
+  const stats = historyStats(watch.history, now);
   const problem = trouble(watch);
   const lastGood = watch.lastSuccessAt ? Date.parse(watch.lastSuccessAt) : null;
   const age = lastGood === null ? 0 : (now - lastGood) / (watch.intervalSeconds * 1000);
@@ -235,6 +237,23 @@ function Product({
         </div>
       </section>
 
+      {stats && (
+        <dl className="tabular -mt-6 grid grid-cols-2 gap-x-8 gap-y-3 text-[12px] sm:grid-cols-5">
+          {[
+            ['Lowest', formatMoney(stats.lowest, currency)],
+            ['Highest', formatMoney(stats.highest, currency)],
+            ['30-day low', stats.low30 === null ? '—' : formatMoney(stats.low30, currency)],
+            ['Average', formatMoney(stats.average, currency)],
+            ['Changes', String(stats.changes)],
+          ].map(([term, value]) => (
+            <div key={term}>
+              <dt className="text-ink-2">{term}</dt>
+              <dd className="mt-0.5 text-[15px]">{value}</dd>
+            </div>
+          ))}
+        </dl>
+      )}
+
       <section aria-labelledby="history">
         <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
           <div className="flex items-baseline gap-4">
@@ -283,6 +302,9 @@ function Product({
               tickLabel={domain[1] - domain[0] < 2 * 86_400_000 ? words.time : words.day}
               describeTime={words.moment}
               bands={soldOutBands(watch.history, now)}
+              failures={(checks.data ?? [])
+                .filter((check) => !isGoodOutcome(check.outcome))
+                .map((check) => Date.parse(check.startedAt))}
               events={events.flatMap((event) => {
                 const label = chartFlag(event.kind);
                 const t = Date.parse(event.at);

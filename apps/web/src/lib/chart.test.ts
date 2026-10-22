@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   defaultRange,
+  historyStats,
   spacedTicks,
   sparkDomain,
   extremes,
@@ -78,5 +79,22 @@ describe('spacedTicks', () => {
     const x = (t: number) => t * 30;
     expect(spacedTicks([0, 1, 2, 3, 4, 5], x)).toEqual([0, 3]);
     expect(spacedTicks([0, 3, 6], x)).toEqual([0, 3, 6]);
+  });
+});
+
+describe('historyStats', () => {
+  it('sums up the whole history, weighting the average by how long each price held', () => {
+    // 4000 for 20 days, 3600 for 10 days (then out of stock, still 3600), 3400 for the last 5.
+    expect(historyStats(history, NOW)).toEqual({
+      lowest: 3400,
+      highest: 4000,
+      low30: 3400,
+      average: Math.round((4000 * 20 + 3600 * 10 + 3600 * 5 + 3400 * 5) / 40),
+      changes: 2,
+    });
+  });
+
+  it('has nothing to say before a price was read', () => {
+    expect(historyStats([], NOW)).toBeNull();
   });
 });

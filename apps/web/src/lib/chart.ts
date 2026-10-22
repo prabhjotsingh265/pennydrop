@@ -93,3 +93,38 @@ export function spacedTicks(
   }
   return kept;
 }
+
+export interface HistoryStats {
+  lowest: number;
+  highest: number;
+  /** The lowest in the last 30 days, counting the price already in force then. */
+  low30: number | null;
+  /** Weighted by how long each price held, so a price that lasted a week counts for a week. */
+  average: number;
+  /** How many times the price moved. */
+  changes: number;
+}
+
+/** The product's numbers over all the history there is. Null before any price was read. */
+export function historyStats(history: History, now: number): HistoryStats | null {
+  const points = stepPoints(history);
+  if (!points.length) return null;
+  let weighted = 0;
+  let span = 0;
+  let changes = 0;
+  points.forEach((point, i) => {
+    const until = points[i + 1]?.t ?? now;
+    const held = Math.max(until - point.t, 0);
+    weighted += point.price * held;
+    span += held;
+    if (i > 0 && point.price !== points[i - 1]!.price) changes++;
+  });
+  const prices = points.map((p) => p.price);
+  return {
+    lowest: Math.min(...prices),
+    highest: Math.max(...prices),
+    low30: extremes(points, [now - 30 * DAY, now])?.low ?? null,
+    average: Math.round(span ? weighted / span : prices[0]!),
+    changes,
+  };
+}

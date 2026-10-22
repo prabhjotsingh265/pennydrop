@@ -10,7 +10,7 @@ import {
   type PointerEvent,
 } from 'react';
 import { useCoinPhysics } from '../lib/coin.ts';
-import { formatMoney } from '../lib/money.ts';
+import { axisFormatter, formatMoney } from '../lib/money.ts';
 import { spacedTicks } from '../lib/chart.ts';
 import { useReducedMotion } from '../lib/motion.ts';
 
@@ -45,6 +45,8 @@ interface StepChartProps {
   targetStep?: number;
   /** Stretches to hatch: when the product was out of stock. */
   bands?: readonly { from: number; to: number }[];
+  /** Moments a check failed: small ticks along the time axis. */
+  failures?: readonly number[];
   /** Turns on the hover readout; says when a moment was, in words. */
   describeTime?: (t: number) => string;
   label: string;
@@ -98,6 +100,7 @@ export function StepChart({
   onTargetChange,
   targetStep = 50,
   bands = [],
+  failures = [],
   describeTime,
   label,
 }: StepChartProps) {
@@ -177,12 +180,8 @@ export function StepChart({
   }, [coinX, targetY, coin]);
 
   const yTicks = compact ? [] : y.ticks(4);
+  const axisLabel = axisFormatter(currency, yTicks);
   const hovered = hoverT === null ? null : stepAt(points, hoverT);
-  const axisMoney = new Intl.NumberFormat('en-GB', {
-    style: 'currency',
-    currency,
-    maximumFractionDigits: 0,
-  });
 
   const dragTo = (clientY: number, element: Element) => {
     if (!onTargetChange) return;
@@ -241,6 +240,19 @@ export function StepChart({
                 </pattern>
               </defs>
             )}
+            {failures
+              .filter((t) => t >= domain[0] && t <= now)
+              .map((t) => (
+                <line
+                  key={`fail-${t}`}
+                  x1={x(t)}
+                  x2={x(t)}
+                  y1={innerHeight - 6}
+                  y2={innerHeight}
+                  stroke="var(--danger)"
+                  strokeWidth={1.5}
+                />
+              ))}
             {bands.map((band) => {
               const from = x(Math.max(band.from, domain[0]));
               const to = x(Math.min(band.to, now));
@@ -263,7 +275,7 @@ export function StepChart({
                   textAnchor="end"
                   className="tabular fill-ink-2 text-[11px]"
                 >
-                  {axisMoney.format(tick / 100)}
+                  {axisLabel(tick)}
                 </text>
               </g>
             ))}

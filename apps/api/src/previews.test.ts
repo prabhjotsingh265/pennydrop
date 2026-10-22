@@ -55,6 +55,7 @@ function rendered(extra: Partial<PreviewResult> = {}): PreviewResult {
       { ...box, text: '£12.50', amount: 1250, struck: false, best: false },
     ],
     selectors: ['.price s', '.price .now', '.related .tile-price'],
+    canonical: null,
     plainHtmlWorks: true,
     screenshot: { width: 1280, height: 1400 },
     timings: { browser: 600, total: 620 },
@@ -195,6 +196,14 @@ describe('adding from a preview', () => {
     await me.add({ url: MUG, preview: { id, choice: 1 } });
     const site = await h.db.site.findUniqueOrThrow({ where: { host: 'fickle.example.com' } });
     expect(site.needsBrowser).toBe(true);
+  });
+
+  it('saves the page’s own canonical address when it names one', async () => {
+    const me = as(await h.signIn());
+    const canonical = 'https://fickle.example.com/p/stoneware-mug-speckled';
+    const id = await previewed(me, rendered({ canonical }));
+    const { watch } = (await me.add({ url: MUG, preview: { id, choice: 1 } })).json();
+    expect(watch.url).toBe(canonical);
   });
 
   it('saves the address the page ended up at', async () => {

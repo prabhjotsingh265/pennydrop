@@ -295,7 +295,8 @@ export async function watchRoutes(app: FastifyInstance, deps: WatchDeps) {
       fromPreview.picked = choice.best ? null : (result.selectors[input.preview.choice] ?? null);
       fromPreview.needsBrowser = result.outcome === 'ok' && result.plainHtmlWorks === false;
       fromPreview.title = result.title;
-      fromPreview.address = result.url;
+      // The page's own canonical address, when it named one on the same site.
+      fromPreview.address = result.canonical ?? result.url;
     }
 
     const added = await addWatch(await workspaceOf(workspaceId), {

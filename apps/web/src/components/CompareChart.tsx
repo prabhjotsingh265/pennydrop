@@ -3,7 +3,7 @@ import { curveStepAfter, line } from 'd3-shape';
 import { useLayoutEffect, useRef, useState } from 'react';
 import { spacedTicks } from '../lib/chart.ts';
 import type { Series } from '../lib/compare.ts';
-import { formatMoney } from '../lib/money.ts';
+import { axisFormatter, formatMoney } from '../lib/money.ts';
 import { priceAt } from './StepChart.tsx';
 
 interface CompareChartProps {
@@ -94,13 +94,10 @@ export function CompareChart({
     ];
     return { series: s, visible, end: priceAt(s.points, now) };
   });
+  const yTicks = y.ticks(4);
+  const axisLabel = axisFormatter(currency, yTicks);
   const labelled = lines.filter((l) => !l.series.other);
   const labelYs = spreadLabels(labelled.map((l) => y(l.end)));
-  const axisMoney = new Intl.NumberFormat('en-GB', {
-    style: 'currency',
-    currency,
-    maximumFractionDigits: 0,
-  });
   const hovered =
     hoverT === null
       ? []
@@ -120,7 +117,7 @@ export function CompareChart({
           className="block overflow-visible"
         >
           <g transform={`translate(${margin.left} ${margin.top})`}>
-            {y.ticks(4).map((tick) => (
+            {yTicks.map((tick) => (
               <g key={tick} transform={`translate(0 ${y(tick)})`}>
                 <line x2={innerWidth} stroke="var(--line)" />
                 <text
@@ -129,7 +126,7 @@ export function CompareChart({
                   textAnchor="end"
                   className="tabular fill-ink-2 text-[11px]"
                 >
-                  {axisMoney.format(tick / 100)}
+                  {axisLabel(tick)}
                 </text>
               </g>
             ))}

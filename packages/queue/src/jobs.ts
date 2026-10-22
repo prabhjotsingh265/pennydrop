@@ -140,6 +140,8 @@ export interface PreviewResult extends PreviewShown {
   outcome: CheckOutcome;
   /** Selectors for the choices, in the same order. Kept back from the browser: the API reads them when a choice is saved. */
   selectors: string[];
+  /** The page's own canonical address, when it names one on the same site: saved instead. */
+  canonical: string | null;
 }
 
 /** Previews, and their screenshots, are kept this long: time enough to pick a price and save. */

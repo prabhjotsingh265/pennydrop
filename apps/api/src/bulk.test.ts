@@ -113,6 +113,7 @@ describe('picking the price again', () => {
       },
     ],
     selectors: ['.hero .amount', '.related .amount'],
+    canonical: null,
     // Nothing read a price, so nobody knows yet whether plain HTTP would do.
     plainHtmlWorks: null,
     screenshot: { width: 1280, height: 1200 },

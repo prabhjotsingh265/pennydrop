@@ -85,6 +85,23 @@ export function choicesFrom(
   };
 }
 
+/**
+ * The address the page says is its own (<link rel="canonical">), when it stays
+ * on the same site: two links to one product then save as one.
+ */
+export function canonicalFrom(html: string, pageUrl: string): string | null {
+  const href = loadPage(html).$('link[rel="canonical"]').attr('href')?.trim();
+  if (!href) return null;
+  try {
+    const canonical = new URL(href, pageUrl);
+    const page = new URL(pageUrl);
+    const http = canonical.protocol === 'http:' || canonical.protocol === 'https:';
+    return http && canonical.host === page.host ? canonical.toString() : null;
+  } catch {
+    return null;
+  }
+}
+
 /** The product's name: its main heading, or failing that the page's title. */
 export function titleFrom(html: string): string | null {
   const page = loadPage(html);
@@ -125,6 +142,7 @@ export function createPreviewProcessor(deps: PreviewDeps) {
       inStock: null,
       choices: [],
       selectors: [],
+      canonical: null,
       plainHtmlWorks: null,
       screenshot: null,
       timings: {},
@@ -186,6 +204,7 @@ export function createPreviewProcessor(deps: PreviewDeps) {
         detail: result.detail,
         url: result.url,
         title: result.html ? titleFrom(result.html) : null,
+        canonical: result.html ? canonicalFrom(result.html, result.url) : null,
         amount,
         currency: extraction?.currency ?? null,
         was: extraction?.was ?? null,

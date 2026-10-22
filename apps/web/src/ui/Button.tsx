@@ -10,7 +10,7 @@ const VARIANTS: Record<Variant, string> = {
 
 /** The classes of a button, for links that look like one. */
 export function buttonClass(variant: Variant = 'quiet', extra = '') {
-  return `inline-flex h-10 items-center justify-center gap-2 rounded-[8px] px-4 text-sm font-medium whitespace-nowrap transition disabled:cursor-not-allowed disabled:opacity-60 ${VARIANTS[variant]} ${extra}`;
+  return `inline-flex h-10 items-center justify-center gap-2 rounded-[8px] px-4 font-sans text-sm font-medium whitespace-nowrap transition disabled:cursor-not-allowed disabled:opacity-60 ${VARIANTS[variant]} ${extra}`;
 }
 
 interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
