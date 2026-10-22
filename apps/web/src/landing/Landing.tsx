@@ -1,28 +1,16 @@
 import { useGSAP } from '@gsap/react';
 import gsap from 'gsap';
 import { useRef, type ReactNode } from 'react';
-import { BrandMark } from '../components/BrandMark.tsx';
+import { Link } from 'react-router';
 import { useReducedMotion } from '../lib/motion.ts';
-import { useTheme } from '../lib/theme.ts';
+import { useTitle } from '../lib/title.ts';
+import { buttonClass } from '../ui/Button.tsx';
+import { Footer, Header } from './PublicChrome.tsx';
 import { RedesignScene } from './RedesignScene.tsx';
 import { TargetPlayground } from './TargetPlayground.tsx';
 import { Watchlist } from './Watchlist.tsx';
 
 gsap.registerPlugin(useGSAP);
-
-function ThemeToggle() {
-  const [theme, toggle] = useTheme();
-  return (
-    <button
-      type="button"
-      onClick={toggle}
-      className="tabular rounded-full border border-line bg-surface px-3 py-1.5 text-[11px]"
-      aria-label={`Switch to ${theme === 'dark' ? 'light' : 'dark'} mode`}
-    >
-      {theme === 'dark' ? 'Dark' : 'Light'}
-    </button>
-  );
-}
 
 function Hero() {
   const reduced = useReducedMotion();
@@ -80,9 +68,20 @@ function Hero() {
       </div>
 
       <div className="flex flex-wrap items-end justify-between gap-6">
-        <p className="max-w-[44ch] text-[clamp(17px,1.5vw,21px)] leading-snug text-ink-2">
-          Price monitoring that notices when a shop redesigns its page, and keeps going.
-        </p>
+        <div>
+          <p className="max-w-[44ch] text-[clamp(17px,1.5vw,21px)] leading-snug text-ink-2">
+            Price monitoring that notices when a shop redesigns its page, and keeps going.
+          </p>
+          <div className="mt-6 flex flex-wrap items-center gap-3">
+            <Link to="/demo" className={buttonClass('primary', 'h-11 px-5 text-[15px]')}>
+              Try the demo
+            </Link>
+            <Link to="/signup" className={buttonClass('quiet', 'h-11 px-5 text-[15px]')}>
+              Create an account
+            </Link>
+            <span className="text-[13px] text-ink-2">The demo needs no account.</span>
+          </div>
+        </div>
         <p className="tabular text-[11px] text-ink-2">Scroll: a shop redesigns itself ↓</p>
       </div>
     </section>
@@ -118,21 +117,40 @@ function Section({
   );
 }
 
-export function Prototype() {
+/** What it does behind the scenes, in claims the code backs. */
+const FACTS = [
+  {
+    title: 'Polite to every shop',
+    text: 'It obeys robots.txt and its crawl delay, asks a real shop at most once every 10 seconds, and when a shop struggles, a circuit breaker leaves it alone for a while.',
+  },
+  {
+    title: 'Read five ways',
+    text: 'The saved selector, the page’s structured data, its microdata, its meta tags, and a scorer for price-shaped text. When the selector breaks, the others find the price and teach it a new one.',
+  },
+  {
+    title: 'Alerts that don’t cry wolf',
+    text: 'Each change alerts each channel once, however many workers see it. A jump of more than half is checked twice first, and a price wobbling round your target alerts once.',
+  },
+  {
+    title: 'Honest history',
+    text: 'Prices are drawn as the steps they took, never slopes. A sale’s “was” price is checked against what the shop really charged in the 30 days before.',
+  },
+  {
+    title: 'Where you are',
+    text: 'Email, Slack, Discord, or a signed webhook to your own systems. Quiet hours, or one summary a day.',
+  },
+  {
+    title: 'Yours to take',
+    text: 'Download everything as spreadsheets, or delete your account, any time. One session cookie, and nothing that tracks you.',
+  },
+];
+
+/** The front page: the idea, the redesign told by the scroll, and the way in. */
+export function Landing() {
+  useTitle('Pennydrop: price monitoring that keeps going');
   return (
     <div className="min-h-dvh bg-paper text-ink">
-      <header className="absolute inset-x-0 top-0 z-10 flex items-center justify-between px-[max(16px,4vw)] py-5">
-        <a href="/prototype" className="flex items-center gap-2.5">
-          <BrandMark size={28} />
-          <span className="text-[17px] font-semibold tracking-[-0.01em] [font-stretch:110%]">
-            Pennydrop
-          </span>
-        </a>
-        <div className="flex items-center gap-3">
-          <span className="tabular hidden text-[11px] text-ink-2 sm:inline">Design prototype</span>
-          <ThemeToggle />
-        </div>
-      </header>
+      <Header overlay />
 
       <main>
         <Hero />
@@ -161,11 +179,40 @@ export function Prototype() {
         >
           <Watchlist />
         </Section>
+
+        <Section
+          n="04"
+          title="Built to be trusted"
+          lead="The hard part of watching prices isn't reading one page. It's reading thousands, every few hours, for months, without being a nuisance or crying wolf."
+        >
+          <ul className="grid gap-x-10 gap-y-10 sm:grid-cols-2 lg:grid-cols-3">
+            {FACTS.map((fact) => (
+              <li key={fact.title} className="border-t border-line pt-5">
+                <h3 className="text-[17px] font-semibold">{fact.title}</h3>
+                <p className="mt-2 max-w-[42ch] text-[15px] leading-relaxed text-ink-2">
+                  {fact.text}
+                </p>
+              </li>
+            ))}
+          </ul>
+        </Section>
+
+        <section className="border-t border-line px-[max(16px,4vw)] py-24">
+          <h2 className="max-w-[16ch] text-[clamp(32px,4.4vw,64px)] leading-[0.95] font-semibold tracking-[-0.025em] [font-stretch:108%]">
+            Break a shop, and watch it recover.
+          </h2>
+          <p className="mt-5 max-w-[56ch] text-[16px] leading-relaxed text-ink-2">
+            The demo gives you products with weeks of history and a practice shop of your own:
+            redesign it, slow it down, knock it over or start a sale, and see what Pennydrop makes
+            of it. No account needed; it’s gone after a day.
+          </p>
+          <Link to="/demo" className={buttonClass('primary', 'mt-8 h-11 px-5 text-[15px]')}>
+            Try the demo
+          </Link>
+        </section>
       </main>
 
-      <footer className="tabular border-t border-line px-[max(16px,4vw)] py-8 text-[11px] text-ink-2">
-        Pennydrop · design prototype · Mona Sans and Martian Mono · colours computed in OKLCH
-      </footer>
+      <Footer />
     </div>
   );
 }

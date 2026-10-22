@@ -17,11 +17,16 @@ import { Forgot } from './auth/Forgot.tsx';
 import { Reset } from './auth/Reset.tsx';
 import { SignIn } from './auth/SignIn.tsx';
 import { SignUp } from './auth/SignUp.tsx';
-import { Prototype } from './prototype/Prototype.tsx';
+import { BotPage } from './landing/BotPage.tsx';
+import { Landing } from './landing/Landing.tsx';
+import { PrivacyPage } from './landing/PrivacyPage.tsx';
+import { TermsPage } from './landing/TermsPage.tsx';
 
 export const router = createBrowserRouter([
-  // The landing page arrives with the demo; until then, straight to the dashboard.
-  { path: '/', element: <Navigate to="/app" replace /> },
+  { path: '/', element: <Landing /> },
+  { path: '/bot', element: <BotPage /> },
+  { path: '/privacy', element: <PrivacyPage /> },
+  { path: '/terms', element: <TermsPage /> },
   { path: '/signin', element: <SignIn /> },
   { path: '/signup', element: <SignUp /> },
   { path: '/signup/sent', element: <CheckEmail /> },
@@ -48,6 +53,7 @@ export const router = createBrowserRouter([
       { path: 'settings', element: <SettingsPage /> },
     ],
   },
-  { path: '/prototype', element: <Prototype /> },
+  // The phase-0 design prototype grew into the landing page.
+  { path: '/prototype', element: <Navigate to="/" replace /> },
   { path: '*', element: <Navigate to="/app" replace /> },
 ]);

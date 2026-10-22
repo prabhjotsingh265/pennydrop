@@ -1,0 +1,4 @@
+# The landing page and the public pages are for everyone; the dashboard and its API are private.
+User-agent: *
+Disallow: /app
+Disallow: /api
