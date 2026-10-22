@@ -179,6 +179,13 @@ export function StepChart({
     coinRef.current?.setAttribute('transform', `translate(${coinX} ${coin.current.y})`);
   }, [coinX, targetY, coin]);
 
+  // Flags too close to read apart are drawn once: two heals minutes apart are one story.
+  const flagTimes = spacedTicks(
+    [...events].sort((a, b) => a.t - b.t).map((event) => event.t),
+    x,
+    56,
+  );
+  const flags = flagTimes.map((t) => events.find((event) => event.t === t)!);
   const yTicks = compact ? [] : y.ticks(4);
   const axisLabel = axisFormatter(currency, yTicks);
   const hovered = hoverT === null ? null : stepAt(points, hoverT);
@@ -292,7 +299,7 @@ export function StepChart({
                 </text>
               ))}
 
-            {events.map((event) =>
+            {flags.map((event) =>
               event.t <= now ? (
                 <g
                   key={event.t + event.label}
