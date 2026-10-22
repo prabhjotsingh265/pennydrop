@@ -253,6 +253,50 @@ export async function reportRoutes(
     ]);
   }
 
+  // Channel addresses stay out: a webhook's address is as good as a password.
+  async function alertsCsv(workspaceId: string): Promise<string> {
+    const alerts = await db.alert.findMany({
+      where: { workspaceId },
+      include: {
+        watch: { include: { target: true } },
+        deliveries: {
+          include: { channel: { select: { name: true } } },
+          orderBy: { channel: { createdAt: 'asc' } },
+        },
+      },
+      orderBy: { firedAt: 'asc' },
+    });
+    const rows = alerts.map(({ watch, ...alert }) => [
+      alert.firedAt.toISOString(),
+      watch.label ?? watch.target.title ?? labelFromUrl(watch.target.url),
+      watch.target.url,
+      decimal(alert.price, alert.currency ?? 'GBP'),
+      decimal(alert.previousPrice, alert.currency ?? 'GBP'),
+      alert.currency,
+      alert.kinds.join('; '),
+      alert.reasons.join('; '),
+      alert.verified,
+      alert.readAt?.toISOString() ?? null,
+      alert.deliveries.map((d) => `${d.channel.name}: ${d.status}`).join('; '),
+    ]);
+    return csv([
+      [
+        'fired_at',
+        'name',
+        'address',
+        'price',
+        'previous_price',
+        'currency',
+        'rules',
+        'reasons',
+        'verified_twice',
+        'read_at',
+        'sent_to',
+      ],
+      ...rows,
+    ]);
+  }
+
   app.get('/api/watches.csv', async (request, reply) =>
     reply
       .type('text/csv; charset=utf-8')
@@ -267,6 +311,7 @@ export async function reportRoutes(
     const archive = zip([
       { name: 'products.csv', data: await watchlistCsv(workspaceId) },
       { name: 'price-history.csv', data: await historyCsv(workspaceId) },
+      { name: 'alerts.csv', data: await alertsCsv(workspaceId) },
     ]);
     return reply
       .type('application/zip')

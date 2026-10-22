@@ -124,7 +124,7 @@ export function SettingsPage() {
           Your data
         </h2>
         <p className="text-sm text-ink-2">
-          Take your products and every price they’ve had with you, as spreadsheets.
+          Take your products, every price they’ve had and your alerts with you, as spreadsheets.
         </p>
         <div className="flex flex-wrap gap-x-6 gap-y-2">
           <a href="/api/export" download className="text-sm text-copper-deep underline">

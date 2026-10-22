@@ -109,7 +109,7 @@ describe('deleting an account', () => {
 });
 
 describe('GET /api/export', () => {
-  it('gives the workspace’s products and their price history in one ZIP', async () => {
+  it('gives the workspace’s products, their price history and its alerts in one ZIP', async () => {
     const cookie = await h.signIn();
     const { watch } = (
       await post('/api/watches', { url: 'https://fickle.example.com/p/mug', label: 'Mug' }, cookie)
@@ -126,7 +126,7 @@ describe('GET /api/export', () => {
         outcome: 'ok',
       },
     });
-    await h.db.pricePoint.create({
+    const point = await h.db.pricePoint.create({
       data: {
         targetId: watch.targetId,
         firstSeenAt: at,
@@ -137,6 +137,23 @@ describe('GET /api/export', () => {
         firstCheckId: check.id,
       },
     });
+    const { workspaceId } = await h.db.watch.findUniqueOrThrow({ where: { id: watch.id } });
+    // Signing up made an email channel.
+    const [channel] = await h.db.channel.findMany({ where: { workspaceId } });
+    await h.db.alert.create({
+      data: {
+        workspaceId,
+        watchId: watch.id,
+        pricePointId: point.id,
+        kinds: ['below_target', 'any_drop'],
+        price: 3450n,
+        previousPrice: 3900n,
+        currency: 'GBP',
+        reasons: ['At or below your £35.00 target', 'Down £4.50 from £39.00'],
+        firedAt: at,
+        deliveries: { create: { channelId: channel!.id, status: 'sent' } },
+      },
+    });
 
     const response = await h.app.inject({ method: 'GET', url: '/api/export', headers: { cookie } });
     expect(response.headers['content-type']).toBe('application/zip');
@@ -144,12 +161,16 @@ describe('GET /api/export', () => {
       /pennydrop-export-\d{4}-\d{2}-\d{2}\.zip/,
     );
     const files = unzip(response.rawPayload);
-    expect(Object.keys(files)).toEqual(['products.csv', 'price-history.csv']);
+    expect(Object.keys(files)).toEqual(['products.csv', 'price-history.csv', 'alerts.csv']);
     expect(files['products.csv']).toContain(
       'Mug,fickle.example.com,https://fickle.example.com/p/mug',
     );
     expect(files['price-history.csv']!.split('\r\n')[1]).toBe(
       'Mug,https://fickle.example.com/p/mug,2026-10-01T09:00:00.000Z,2026-10-01T09:00:00.000Z,34.50,,GBP,true',
+    );
+    // The channel's name and what happened, never its address.
+    expect(files['alerts.csv']!.split('\r\n')[1]).toBe(
+      `2026-10-01T09:00:00.000Z,Mug,https://fickle.example.com/p/mug,34.50,39.00,GBP,below_target; any_drop,At or below your £35.00 target; Down £4.50 from £39.00,false,,${channel!.name}: sent`,
     );
   });
 });
