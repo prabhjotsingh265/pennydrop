@@ -230,6 +230,27 @@ describe('a replayed reading', () => {
   });
 });
 
+describe('the first live reading after a replay', () => {
+  it('sets the product’s price, even when it matches the last replayed one', async () => {
+    await db.target.update({
+      where: { id: targetId },
+      data: { currentPrice: null, currency: null },
+    });
+    await startReplay(deps, targetId, { days: 1 });
+    const [step] = await queued();
+    await replayed(step!, 2999);
+    // The live check reads the same price the shop had at the last replayed moment.
+    const live: FetchJob = { ...step!, reason: 'scheduled', scheduledFor: NOW, replay: undefined };
+    await replayed(live, 2999);
+    expect(await db.target.findUniqueOrThrow({ where: { id: targetId } })).toMatchObject({
+      currentPrice: 2999n,
+      currency: 'GBP',
+      inStock: true,
+    });
+    expect(await points()).toHaveLength(1);
+  });
+});
+
 describe('continueReplay', () => {
   it('asks for the next moment, and at the end lets a new product’s live checks begin', async () => {
     await startReplay(deps, targetId, { days: 1 });

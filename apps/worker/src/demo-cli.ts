@@ -9,7 +9,9 @@ import { REPLAY_DAYS, startReplay } from './replay.ts';
 // "Showcase" workspace nobody signs in to, with their history replayed. The
 // mug is there too: each visitor's sandbox starts from its price. Run again,
 // it adds only what's missing. Usage: demo [--days 60] [--wait]
-// --wait returns once every showcase product has a price: demos start from them.
+// --wait returns once the products demos take their targets from have a price: the
+// ones with targets, and the mug each sandbox copies. (The slow and failing shops'
+// kettles may take a while longer, and no demo needs them to start.)
 const { values } = parseArgs({
   options: {
     days: { type: 'string', default: String(REPLAY_DAYS) },
@@ -37,10 +39,17 @@ const pages = [
   practiceUrl(template, 'fickle', `/p/${SANDBOX_PRODUCT}`),
 ];
 let total = 0;
+// The pages a new demo takes a target price from.
+const needed = new Set([
+  ...SHOWCASE.filter((item) => item.target).map((item) =>
+    practiceUrl(template, item.shop, `/p/${item.slug}`),
+  ),
+  practiceUrl(template, 'fickle', `/p/${SANDBOX_PRODUCT}`),
+]);
 const targetIds: string[] = [];
 for (const url of pages) {
   const target = await practiceTarget(db, url);
-  targetIds.push(target.id);
+  if (needed.has(url)) targetIds.push(target.id);
   await db.watch.upsert({
     where: { workspaceId_targetId: { workspaceId: showcase.id, targetId: target.id } },
     update: {},
@@ -70,7 +79,7 @@ if (values.wait) {
     if (priced === targetIds.length) break;
     await new Promise((resolve) => setTimeout(resolve, 2_000));
   }
-  console.log(`${priced} of ${targetIds.length} showcase products have a price.`);
+  console.log(`${priced} of the ${targetIds.length} products demos start from have a price.`);
   if (priced < targetIds.length) process.exitCode = 1;
 }
 await http.close();

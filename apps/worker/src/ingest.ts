@@ -220,6 +220,11 @@ export async function ingest(deps: IngestDeps, data: IngestJob): Promise<IngestR
           last.inStock === reading.inStock;
         if (same) {
           pointUpdate = { id: last.id, lastSeenAt: at };
+          // Usually already so; not when the history before this reading was replayed, which never
+          // touches the product. Either way, the price just read is the product's price now.
+          targetUpdate.currentPrice = reading.price;
+          targetUpdate.currency = reading.currency;
+          targetUpdate.inStock = reading.inStock;
           targetUpdate.pendingPrice = null;
           targetUpdate.pendingSince = null;
         } else if (isSuspicious(last, reading) && target.pendingPrice !== reading.price) {

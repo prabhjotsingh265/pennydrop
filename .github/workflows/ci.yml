@@ -105,6 +105,8 @@ jobs:
   # and axe on every page, at desktop and phone sizes.
   e2e:
     runs-on: ubuntu-latest
+    # A hang fails in minutes, rather than hours.
+    timeout-minutes: 20
     container:
       image: mcr.microsoft.com/playwright:v1.63.0-noble
 
@@ -149,13 +151,17 @@ jobs:
           corepack enable
           pnpm install --frozen-lockfile
 
-      - name: Database
-        run: pnpm --filter @pennydrop/db migrate
+      # Turborepo generates the client before checks and tests; started by hand, the apps need it first.
+      - name: Database client and tables
+        run: |
+          pnpm --filter @pennydrop/db generate
+          pnpm --filter @pennydrop/db migrate
 
       - name: Start Pennydrop
         run: |
           mkdir -p logs
-          start() { name=$1; shift; nohup "$@" > "logs/$name.log" 2>&1 & }
+          # Each in a session of its own, with nothing of this step's open: the step can end.
+          start() { name=$1; shift; setsid nohup "$@" > "logs/$name.log" 2>&1 < /dev/null & }
           start shop pnpm --filter @pennydrop/shop exec tsx src/server.ts
           start api pnpm --filter @pennydrop/api exec tsx src/server.ts
           start worker pnpm --filter @pennydrop/worker exec tsx src/main.ts
@@ -165,7 +171,8 @@ jobs:
           for url in http://127.0.0.1:4000/robots.txt http://127.0.0.1:3001/api/health http://127.0.0.1:3000/; do
             node -e "
               const until = Date.now() + 90_000;
-              const look = () => fetch('$url').then((r) => r.ok ? process.exit(0) : Promise.reject())
+              const look = () => fetch('$url', { signal: AbortSignal.timeout(5000) })
+                .then((r) => r.ok ? process.exit(0) : Promise.reject())
                 .catch(() => Date.now() < until ? setTimeout(look, 1000) : process.exit(1));
               look();" || { echo "$url never answered"; exit 1; }
           done
