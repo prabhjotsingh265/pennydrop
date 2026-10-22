@@ -298,6 +298,7 @@ export async function ingest(deps: IngestDeps, data: IngestJob): Promise<IngestR
           currency: report.currency,
           inStock: report.inStock,
           detail: report.detail,
+          screenshotKey: report.screenshot ? data.checkJobId : null,
           readings: {
             strategies: report.readings,
             locator: report.locator,

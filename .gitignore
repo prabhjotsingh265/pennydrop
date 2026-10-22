@@ -15,3 +15,6 @@ storage/
 !.env.example
 .idea/
 .vscode/
+
+# Screenshots of failed checks, and other local data.
+.data/

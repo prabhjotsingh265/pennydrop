@@ -131,6 +131,26 @@ export function CheckRow({ check, now, currency, moment, scale, product }: RowPr
               </dd>
             </>
           )}
+          {check.screenshot && (
+            <div className="col-span-2 mt-2">
+              <a
+                href={`/api/checks/${check.id}/screenshot`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="block w-fit"
+              >
+                <img
+                  src={`/api/checks/${check.id}/screenshot`}
+                  alt="The page as this check saw it"
+                  loading="lazy"
+                  className="max-h-64 rounded-[8px] border border-line"
+                />
+                <span className="mt-1 block font-sans text-[12px] text-copper-deep underline">
+                  Open the screenshot (kept for 7 days)
+                </span>
+              </a>
+            </div>
+          )}
           {SEGMENTS.map(({ key, label }) =>
             check.timings?.[key] ? (
               <div key={key} className="contents">

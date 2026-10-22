@@ -198,6 +198,8 @@ model Check {
   detail       String?
   /// Each strategy's reading, for "show me why".
   readings     Json?
+  /// A failed browser check's screenshot, kept for 7 days.
+  screenshotKey String?   @map("screenshot_key")
 
   target Target @relation(fields: [targetId], references: [id], onDelete: Cascade)
 

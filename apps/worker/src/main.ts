@@ -9,7 +9,7 @@ import {
 import { Queue, Worker } from 'bullmq';
 import { dispatch, type DispatchResult } from './dispatch.ts';
 import { ingest } from './ingest.ts';
-import { pruneChecks } from './maintenance.ts';
+import { pruneChecks, pruneScreenshots } from './maintenance.ts';
 
 // The only process with the database: it decides what to check and records what was found.
 const db = createDb();
@@ -51,12 +51,19 @@ await chores.upsertJobScheduler(
   { pattern: '0 3 * * *', tz: 'UTC' },
   { name: 'prune-checks' },
 );
-const maintainer = new Worker(QUEUES.maintenance, async () => ({ pruned: await pruneChecks(db) }), {
-  connection,
-  concurrency: 1,
-});
+const screenshotDir = process.env.SCREENSHOT_DIR;
+const maintainer = new Worker(
+  QUEUES.maintenance,
+  async () => ({
+    pruned: await pruneChecks(db),
+    screenshots: screenshotDir ? await pruneScreenshots(db, screenshotDir) : 0,
+  }),
+  { connection, concurrency: 1 },
+);
 maintainer.on('completed', (_job, result) =>
-  console.log(`maintenance: pruned ${result.pruned} old checks`),
+  console.log(
+    `maintenance: pruned ${result.pruned} old checks and ${result.screenshots} old screenshots`,
+  ),
 );
 
 const ingester = new Worker<IngestJob>(

@@ -201,6 +201,7 @@ export function createChecker(options: CheckerOptions) {
         const page = await options.pool.render(request.url, {
           userAgent: options.userAgent,
           forPeople: request.forPeople ?? false,
+          snapshot: !request.forPeople,
         });
         timings.browser = performance.now() - browserStarted;
         const extra = {
@@ -231,6 +232,8 @@ export function createChecker(options: CheckerOptions) {
         }
         return finish('browser', 'ok', 'Read in a browser.', {
           ...extra,
+          // A check that worked keeps no picture; a preview always does.
+          screenshot: request.forPeople ? page.screenshot : null,
           extraction,
           neededBrowser: escalated,
         });

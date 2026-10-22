@@ -39,6 +39,16 @@ describe('checking with a browser', () => {
     expect(result.timings.browser).toBeGreaterThan(0);
   }, 60_000);
 
+  it('keeps a small picture of a failed check, and none of one that worked', async () => {
+    const home = url.replace('/p/stoneware-mug', '/');
+    const failed = await checker.check({ url: home, mode: 'browser' });
+    expect(failed.outcome).toBe('gone');
+    expect(failed.screenshot?.length).toBeGreaterThan(1000);
+    const worked = await checker.check({ url, mode: 'browser' });
+    expect(worked.outcome).toBe('ok');
+    expect(worked.screenshot).toBeNull();
+  }, 60_000);
+
   it('previews a product for someone picking its price', async () => {
     const result = await checker.check({ url, forPeople: true });
     expect(result).toMatchObject({ outcome: 'ok', mode: 'browser' });

@@ -145,6 +145,12 @@ describe('price history', () => {
     expect(point!.lastSeenAt.getTime()).toBe(NOW + 3_600_000);
   });
 
+  it('remembers that a failed check left a screenshot', async () => {
+    await run({ outcome: 'price_not_found', amount: null, screenshot: true }, {}, 'check-shot');
+    const check = await db.check.findUniqueOrThrow({ where: { jobId: 'check-shot' } });
+    expect(check.screenshotKey).toBe('check-shot');
+  });
+
   it('adds a row when the price moves', async () => {
     await run();
     await run({ amount: 2999, finishedAt: NOW + MINUTE });

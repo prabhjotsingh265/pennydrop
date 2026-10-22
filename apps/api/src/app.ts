@@ -134,7 +134,7 @@ export function buildApp(deps: AppDeps) {
       now: deps.now,
     });
     await previewRoutes(dashboard, { ...vet, previews: deps.previews });
-    await reportRoutes(dashboard, { db });
+    await reportRoutes(dashboard, { db, screenshotDir: config.screenshotDir });
     await groupRoutes(dashboard, { db });
 
     // Live updates for the dashboard, as Server-Sent Events.

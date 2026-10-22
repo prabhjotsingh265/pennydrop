@@ -6,6 +6,9 @@ import type {
   IngestJob,
   SiteGate,
 } from '@pennydrop/queue';
+import { mkdir, writeFile } from 'node:fs/promises';
+import { dirname } from 'node:path';
+import { screenshotPath } from '@pennydrop/queue';
 import { DelayedError, type Job, type Queue } from 'bullmq';
 import type { CheckResult, createChecker } from './check.ts';
 
@@ -38,6 +41,8 @@ export interface FetchProcessorDeps {
   worker: string;
   /** How long a gate slot is held before it's taken back from a crashed worker. */
   leaseMs?: number;
+  /** Where failed browser checks leave their screenshots. Without it, none are kept. */
+  screenshotDir?: string;
   now?: () => number;
 }
 
@@ -113,6 +118,27 @@ function skipped(job: FetchJob, retryAt: number, worker: string, at: number): Ch
   };
 }
 
+/** A failed check's picture, saved under its job id for the check log. Never fails the check. */
+export async function keepScreenshot(
+  dir: string | undefined,
+  key: string,
+  result: Pick<CheckResult, 'outcome' | 'screenshot'>,
+): Promise<boolean> {
+  const path = dir ? screenshotPath(dir, key) : null;
+  if (!path || !result.screenshot || SITE_HEALTHY_READS.has(result.outcome)) return false;
+  try {
+    await mkdir(dirname(path), { recursive: true });
+    await writeFile(path, result.screenshot);
+    return true;
+  } catch (error) {
+    console.error(`screenshot for ${key} not kept:`, error);
+    return false;
+  }
+}
+
+/** Outcomes that read the page properly: nothing to look into. */
+const SITE_HEALTHY_READS = new Set<CheckOutcome>(['ok', 'unchanged', 'suspicious']);
+
 /**
  * Runs one fetch job. The breaker and the gate come first: a failing site is
  * skipped, and a busy one puts the job back for exactly as long as it must
@@ -176,8 +202,8 @@ export function createFetchProcessor(deps: FetchProcessorDeps) {
         health === null ? { change: null } : await deps.breaker.report(data.host, health);
       if (change.change === 'opened') notBefore = Math.max(notBefore ?? 0, change.openUntil);
 
-      await send(
-        toReport(result, deps.lane, {
+      await send({
+        ...toReport(result, deps.lane, {
           startedAt,
           finishedAt,
           notBefore,
@@ -187,7 +213,8 @@ export function createFetchProcessor(deps: FetchProcessorDeps) {
             openUntil: change.change === 'opened' ? change.openUntil : null,
           },
         }),
-      );
+        screenshot: await keepScreenshot(deps.screenshotDir, id, result),
+      });
     } finally {
       await deps.gate.release(data.host, id);
     }

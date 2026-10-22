@@ -1,3 +1,5 @@
+import { writeFile } from 'node:fs/promises';
+import { join } from 'node:path';
 import { afterAll, beforeEach, describe, expect, it } from 'vitest';
 import { APP_URL, harness } from '../test/harness.ts';
 
@@ -164,5 +166,58 @@ describe('CSV exports', () => {
     const mug = await add(a, { url: 'https://fickle.example.com/p/mug' });
     expect((await get(b, `/api/watches/${mug.id}/history.csv`)).statusCode).toBe(404);
     expect((await get(b, '/api/watches/not-an-id/history.csv')).statusCode).toBe(404);
+  });
+});
+
+describe('GET /api/checks/:id/screenshot', () => {
+  it('shows a failed check’s screenshot to the workspace watching the page, and no one else', async () => {
+    const a = await h.signIn('a@example.com');
+    const b = await h.signIn('b@example.com');
+    const mug = await add(a, { url: 'https://fickle.example.com/p/mug' });
+    const at = new Date();
+    const check = await h.db.check.create({
+      data: {
+        targetId: mug.targetId,
+        jobId: 'scheduled-shot-1',
+        reason: 'scheduled',
+        mode: 'browser',
+        scheduledFor: at,
+        startedAt: at,
+        finishedAt: at,
+        outcome: 'blocked',
+        screenshotKey: 'scheduled-shot-1',
+      },
+    });
+    await writeFile(join(h.screenshotDir, 'scheduled-shot-1.jpg'), 'jpeg bytes');
+
+    const listed = (await get(a, `/api/watches/${mug.id}/checks`)).json().checks;
+    expect(listed[0]).toMatchObject({ id: check.id, screenshot: true });
+    const image = await get(a, `/api/checks/${check.id}/screenshot`);
+    expect(image.statusCode).toBe(200);
+    expect(image.headers['content-type']).toBe('image/jpeg');
+    expect(image.body).toBe('jpeg bytes');
+
+    expect((await get(b, `/api/checks/${check.id}/screenshot`)).statusCode).toBe(404);
+  });
+
+  it('says when a screenshot is no longer kept', async () => {
+    const a = await h.signIn();
+    const mug = await add(a, { url: 'https://fickle.example.com/p/mug' });
+    const at = new Date();
+    const check = await h.db.check.create({
+      data: {
+        targetId: mug.targetId,
+        jobId: 'gone-shot',
+        reason: 'scheduled',
+        scheduledFor: at,
+        startedAt: at,
+        finishedAt: at,
+        outcome: 'blocked',
+        screenshotKey: 'gone-shot',
+      },
+    });
+    const response = await get(a, `/api/checks/${check.id}/screenshot`);
+    expect(response.statusCode).toBe(404);
+    expect(response.json().error).toBe('That screenshot is no longer kept.');
   });
 });

@@ -123,4 +123,6 @@ export interface CheckSummary {
   currency: string | null;
   inStock: boolean | null;
   detail: string | null;
+  /** A failed browser check's screenshot is kept for 7 days. */
+  screenshot: boolean;
 }

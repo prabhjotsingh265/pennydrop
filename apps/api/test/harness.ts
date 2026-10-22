@@ -1,3 +1,6 @@
+import { mkdtempSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { resetDatabase, testDb } from '@pennydrop/db/testing';
 import { vi } from 'vitest';
 import type { Lookup } from '../src/addresses.ts';
@@ -19,6 +22,7 @@ export function harness() {
     authSecret: 'test-secret-that-is-long-enough-0123456789',
     mail: { from: 'Pennydrop <hello@pennydrop.test>' },
     localShops: false,
+    screenshotDir: mkdtempSync(join(tmpdir(), 'pennydrop-api-shots-')),
   };
   const wake = vi.fn(async () => {});
   // No real DNS in tests: names resolve to a public documentation address unless told otherwise.
@@ -62,6 +66,7 @@ export function harness() {
     wake,
     resolved,
     previews,
+    screenshotDir: config.screenshotDir!,
     live,
     published,
     signIn,

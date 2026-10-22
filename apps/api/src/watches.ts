@@ -412,6 +412,7 @@ export async function watchRoutes(app: FastifyInstance, deps: WatchDeps) {
         currency: check.currency,
         inStock: check.inStock,
         detail: check.detail,
+        screenshot: check.screenshotKey !== null,
       })),
     };
   });

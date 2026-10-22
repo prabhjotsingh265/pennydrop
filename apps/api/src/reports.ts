@@ -3,6 +3,8 @@ import type { CheckFeed, CheckFeedItem, SiteSummary } from '@pennydrop/domain';
 import { minorDigits } from '@pennydrop/domain';
 import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
+import { readFile } from 'node:fs/promises';
+import { screenshotPath } from '@pennydrop/queue';
 import { csv, fileName } from './csv.ts';
 import { labelFromUrl } from './watches.ts';
 
@@ -40,7 +42,10 @@ interface SiteRow {
 }
 
 /** The Sites and Checks pages, and CSV exports: all of it inside the signed-in workspace. */
-export async function reportRoutes(app: FastifyInstance, { db }: { db: Db }) {
+export async function reportRoutes(
+  app: FastifyInstance,
+  { db, screenshotDir }: { db: Db; screenshotDir?: string },
+) {
   app.get('/api/sites', async (request): Promise<{ sites: SiteSummary[] }> => {
     const { workspaceId } = request.member!;
     const sites = await db.$queryRaw<SiteRow[]>`
@@ -161,10 +166,31 @@ export async function reportRoutes(app: FastifyInstance, { db }: { db: Db }) {
           currency: check.currency,
           inStock: check.inStock,
           detail: check.detail,
+          screenshot: check.screenshotKey !== null,
         };
       }),
       next: rows.length > limit ? page.at(-1)!.startedAt.toISOString() : null,
     };
+  });
+
+  // A failed check's screenshot, for a workspace that watches that page, while it's kept.
+  app.get('/api/checks/:id/screenshot', async (request, reply) => {
+    const params = idParams.safeParse(request.params);
+    const check = params.success
+      ? await db.check.findFirst({
+          where: {
+            id: params.data.id,
+            screenshotKey: { not: null },
+            target: { watches: { some: { workspaceId: request.member!.workspaceId } } },
+          },
+          select: { screenshotKey: true },
+        })
+      : null;
+    const path =
+      check && screenshotDir ? screenshotPath(screenshotDir, check.screenshotKey!) : null;
+    const image = path ? await readFile(path).catch(() => null) : null;
+    if (!image) return reply.code(404).send({ error: 'That screenshot is no longer kept.' });
+    return reply.type('image/jpeg').header('cache-control', 'private, max-age=86400').send(image);
   });
 
   app.get('/api/watches.csv', async (request, reply) => {

@@ -7,6 +7,8 @@ export interface RenderOptions {
   userAgent: string;
   /** For the screenshot people pick the price from: images load and a picture is taken. */
   forPeople?: boolean;
+  /** A check: a small picture of what was seen, kept only if the check fails. */
+  snapshot?: boolean;
   navigationTimeoutMs?: number;
   /** After the page loads, wait at most this long for its network to go quiet. */
   settleMs?: number;
@@ -180,6 +182,10 @@ export class BrowserPool {
         });
         // What a plain request would have got: is the browser needed at all?
         source = (await response?.text().catch(() => null)) ?? null;
+      } else if (options.snapshot) {
+        // Just the first screenful, small: enough to see a "prove you're human" wall or a new layout.
+        screenshot = await page.screenshot({ type: 'jpeg', quality: 50 }).catch(() => null);
+        screenshotHeight = screenshot ? VIEWPORT.height : 0;
       }
 
       return {

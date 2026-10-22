@@ -105,6 +105,8 @@ export interface CheckReport {
   finishedAt: number;
   breaker: { change: 'opened' | 'closed' | null; openUntil: number | null };
   worker: string;
+  /** A screenshot was kept for this failed check, named by its job id. */
+  screenshot?: boolean;
 }
 
 export interface IngestJob {

@@ -37,6 +37,7 @@ services:
     command: ['pnpm', '--filter', '@pennydrop/api', 'dev']
     environment:
       LOCAL_SHOP_HOST: shop
+      SCREENSHOT_DIR: /app/.data/screenshots
     networks: [data, default]
     ports:
       - '${FORWARD_API_PORT:-3001}:3001'
@@ -69,6 +70,10 @@ services:
   worker:
     <<: *node
     command: ['pnpm', '--filter', '@pennydrop/worker', 'dev']
+    # Screenshots of failed checks sit in the project folder every container shares,
+    # owned by your user (a root-owned volume would refuse the fetcher's writes).
+    environment:
+      SCREENSHOT_DIR: /app/.data/screenshots
     networks: [data, default]
     depends_on:
       postgres:
@@ -103,6 +108,7 @@ services:
       REDIS_URL: redis://redis:6379
       FETCHER_LANE: browser
       LOCAL_SHOP_HOST: shop
+      SCREENSHOT_DIR: /app/.data/screenshots
     volumes:
       - .:/app
       - pnpm-store:/pnpm-store

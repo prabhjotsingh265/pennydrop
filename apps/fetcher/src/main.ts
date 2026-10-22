@@ -30,6 +30,8 @@ const gate = new SiteGate(connection);
 const breaker = new Breaker(connection);
 const processor = createFetchProcessor({
   checker,
+  // Only the browser lane has pictures to keep.
+  screenshotDir: lane === 'browser' ? process.env.SCREENSHOT_DIR : undefined,
   gate,
   breaker,
   ingest,

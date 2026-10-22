@@ -5,6 +5,8 @@ export interface Config {
   mail: { from: string; mailpitUrl?: string; resendKey?: string };
   /** Development: the practice shops at *.localhost may be added. */
   localShops: boolean;
+  /** Where the browser fetcher leaves screenshots of failed checks. */
+  screenshotDir?: string;
 }
 
 export function configFromEnv(env: NodeJS.ProcessEnv = process.env): Config {
@@ -22,5 +24,6 @@ export function configFromEnv(env: NodeJS.ProcessEnv = process.env): Config {
       resendKey: env.RESEND_API_KEY || undefined,
     },
     localShops: Boolean(env.LOCAL_SHOP_HOST),
+    screenshotDir: env.SCREENSHOT_DIR || undefined,
   };
 }
