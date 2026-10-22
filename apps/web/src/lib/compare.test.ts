@@ -81,7 +81,14 @@ describe('the compare window', () => {
   const young = seriesFor(
     [
       watch('a.example.com', 100, {
-        history: [{ t: new Date(NOW - 20 * 3_600_000).toISOString(), price: 100, inStock: true }],
+        history: [
+          {
+            t: new Date(NOW - 20 * 3_600_000).toISOString(),
+            price: 100,
+            inStock: true,
+            replayed: false,
+          },
+        ],
       }),
     ],
     'light',

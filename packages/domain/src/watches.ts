@@ -87,8 +87,11 @@ export interface WatchSummary {
   intervalSeconds: number;
   lastCheckedAt: string | null;
   lastSuccessAt: string | null;
-  /** Change points over the last 30 days, oldest first: each price holds until the next. */
-  history: { t: string; price: number | null; inStock: boolean }[];
+  /**
+   * Change points over the last 30 days, oldest first: each price holds until
+   * the next. Replayed ones were read from the practice shop's past pages.
+   */
+  history: { t: string; price: number | null; inStock: boolean; replayed: boolean }[];
 }
 
 /** Something worth showing on a product's timeline. Site-wide ones (a redesign, a breaker) touch every product there. */

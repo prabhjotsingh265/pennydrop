@@ -42,6 +42,101 @@ type Reading = { price: bigint; was: bigint | null; currency: string; inStock: b
 
 const big = (value: number | null) => (value === null ? null : BigInt(value));
 
+/** One check, as the check log keeps it. */
+function checkRow(
+  targetId: string,
+  data: IngestJob,
+  outcome: CheckOutcome,
+  startedAt: Date,
+  finishedAt: Date,
+): Prisma.CheckUncheckedCreateInput {
+  const { job, report } = data;
+  return {
+    targetId,
+    jobId: data.checkJobId,
+    reason: job.reason,
+    mode: report.mode,
+    scheduledFor: new Date(job.scheduledFor),
+    startedAt,
+    finishedAt,
+    outcome,
+    httpStatus: report.status,
+    timings: report.timings,
+    strategy: report.strategy,
+    confidence: report.confidence,
+    price: big(report.amount),
+    wasPrice: big(report.was),
+    currency: report.currency,
+    inStock: report.inStock,
+    detail: report.detail,
+    screenshotKey: report.screenshot ? data.checkJobId : null,
+    readings: {
+      strategies: report.readings,
+      locator: report.locator,
+      conflict: report.conflict,
+      worker: report.worker,
+    } as unknown as Prisma.InputJsonValue,
+  };
+}
+
+/**
+ * A replay records the past: its check, and its price as a change point
+ * among the others, compared with the point just before it. It never
+ * touches the product's schedule, status or current price, never heals the
+ * site (the past page has the shop's old layout), and alerts nobody.
+ */
+async function recordReplay(
+  tx: Prisma.TransactionClient,
+  target: { id: string; currency: string | null },
+  data: IngestJob,
+): Promise<IngestResult> {
+  const { job, report } = data;
+  const at = new Date(job.scheduledFor);
+  const check = await tx.check.create({ data: checkRow(target.id, data, report.outcome, at, at) });
+  const currency = report.currency ?? target.currency;
+  if (report.outcome === 'ok' && report.amount !== null && currency) {
+    const reading = {
+      price: BigInt(report.amount),
+      wasPrice: big(report.was),
+      currency,
+      inStock: report.inStock ?? true,
+    };
+    const before = await tx.pricePoint.findFirst({
+      where: { targetId: target.id, firstSeenAt: { lte: at } },
+      orderBy: { firstSeenAt: 'desc' },
+    });
+    const same =
+      before &&
+      before.price === reading.price &&
+      before.wasPrice === reading.wasPrice &&
+      before.currency === reading.currency &&
+      before.inStock === reading.inStock;
+    // A moment that a point already spans was recorded before: a replay run again changes nothing.
+    const known = before !== null && before.lastSeenAt >= at;
+    if (same && !known) {
+      await tx.pricePoint.update({ where: { id: before.id }, data: { lastSeenAt: at } });
+    } else if (!known) {
+      await tx.pricePoint.create({
+        data: {
+          targetId: target.id,
+          firstSeenAt: at,
+          lastSeenAt: at,
+          ...reading,
+          firstCheckId: check.id,
+          replayed: true,
+        },
+      });
+    }
+  }
+  return {
+    recorded: true,
+    outcome: report.outcome,
+    priceChanged: false,
+    pricePointId: null,
+    events: [],
+  };
+}
+
 /** A move of more than half, or a new currency: believed only when a second check sees it too. */
 export function isSuspicious(
   last: { price: bigint | null; currency: string } | null,
@@ -88,6 +183,8 @@ export async function ingest(deps: IngestDeps, data: IngestJob): Promise<IngestR
           events: [],
         };
       }
+
+      if (job.reason === 'replay') return recordReplay(tx, target, data);
 
       const at = new Date(report.finishedAt);
       const events: { kind: EventKind; details: Prisma.InputJsonValue; site?: boolean }[] = [];
@@ -295,32 +392,7 @@ export async function ingest(deps: IngestDeps, data: IngestJob): Promise<IngestR
       }
 
       const check = await tx.check.create({
-        data: {
-          targetId: target.id,
-          jobId: data.checkJobId,
-          reason: job.reason,
-          mode: report.mode,
-          scheduledFor: new Date(job.scheduledFor),
-          startedAt: new Date(report.startedAt),
-          finishedAt: at,
-          outcome,
-          httpStatus: report.status,
-          timings: report.timings,
-          strategy: report.strategy,
-          confidence: report.confidence,
-          price: big(report.amount),
-          wasPrice: big(report.was),
-          currency: report.currency,
-          inStock: report.inStock,
-          detail: report.detail,
-          screenshotKey: report.screenshot ? data.checkJobId : null,
-          readings: {
-            strategies: report.readings,
-            locator: report.locator,
-            conflict: report.conflict,
-            worker: report.worker,
-          } as unknown as Prisma.InputJsonValue,
-        },
+        data: checkRow(target.id, data, outcome, new Date(report.startedAt), at),
       });
 
       if (pointUpdate)
@@ -340,7 +412,6 @@ export async function ingest(deps: IngestDeps, data: IngestJob): Promise<IngestR
             currency: newPoint.currency,
             inStock: newPoint.inStock,
             firstCheckId: check.id,
-            replayed: job.reason === 'replay',
           },
           select: { id: true },
         }));

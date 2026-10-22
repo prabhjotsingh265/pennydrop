@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   defaultRange,
   historyStats,
+  liveFrom,
   spacedTicks,
   sparkDomain,
   extremes,
@@ -15,11 +16,11 @@ const NOW = Date.UTC(2026, 9, 21, 12);
 const DAY = 86_400_000;
 const at = (daysAgo: number) => new Date(NOW - daysAgo * DAY).toISOString();
 const history = [
-  { t: at(40), price: 4000, inStock: true },
-  { t: at(20), price: 3600, inStock: true },
-  { t: at(10), price: 3600, inStock: false },
-  { t: at(8), price: null, inStock: false },
-  { t: at(5), price: 3400, inStock: true },
+  { t: at(40), price: 4000, inStock: true, replayed: false },
+  { t: at(20), price: 3600, inStock: true, replayed: false },
+  { t: at(10), price: 3600, inStock: false, replayed: false },
+  { t: at(8), price: null, inStock: false, replayed: false },
+  { t: at(5), price: 3400, inStock: true, replayed: false },
 ];
 
 describe('the product chart', () => {
@@ -35,7 +36,7 @@ describe('the product chart', () => {
 
   it('joins neighbouring sold-out stretches into one band', () => {
     expect(soldOutBands(history, NOW)).toEqual([{ from: NOW - 10 * DAY, to: NOW - 5 * DAY }]);
-    expect(soldOutBands([{ t: at(1), price: 10, inStock: false }], NOW)).toEqual([
+    expect(soldOutBands([{ t: at(1), price: 10, inStock: false, replayed: false }], NOW)).toEqual([
       { from: NOW - DAY, to: NOW },
     ]);
   });
@@ -56,7 +57,9 @@ describe('the product chart', () => {
 
 describe('defaultRange', () => {
   it('shows all of a young product’s history, and the last 30 days of an older one', () => {
-    expect(defaultRange([{ t: at(0.3), price: 1, inStock: true }], NOW)).toBe('all');
+    expect(defaultRange([{ t: at(0.3), price: 1, inStock: true, replayed: false }], NOW)).toBe(
+      'all',
+    );
     expect(defaultRange([], NOW)).toBe('all');
     expect(defaultRange(history, NOW)).toBe('30d');
   });
@@ -96,5 +99,14 @@ describe('historyStats', () => {
 
   it('has nothing to say before a price was read', () => {
     expect(historyStats([], NOW)).toBeNull();
+  });
+});
+
+describe('liveFrom', () => {
+  it('finds where replayed history gives way to live readings', () => {
+    expect(liveFrom(history)).toBeNull();
+    const replayed = history.map((p, i) => ({ ...p, replayed: i < 2 }));
+    expect(liveFrom(replayed)).toBe(Date.parse(at(10)));
+    expect(liveFrom(history.map((p) => ({ ...p, replayed: true })))).toBe(Infinity);
   });
 });

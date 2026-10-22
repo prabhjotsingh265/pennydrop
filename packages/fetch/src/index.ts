@@ -19,3 +19,4 @@ export {
   type FetchedPage,
   type Timings,
 } from './fetch-page.ts';
+export { REPLAY_AT, REPLAY_SIGNATURE, replayHeaders, replaySecretFromEnv } from './replay.ts';

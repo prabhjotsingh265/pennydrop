@@ -1,9 +1,11 @@
+import { createHmac } from 'node:crypto';
 import { request as httpRequest, type Server } from 'node:http';
 import type { AddressInfo } from 'node:net';
 import { afterEach, describe, expect, it } from 'vitest';
 import { buildShop, type ShopOptions } from './app.ts';
 import { findProduct } from './catalogue.ts';
 import { DAY, OPENED, formatPence, quote } from './prices.ts';
+import { DEFAULTS } from './settings.ts';
 
 const NOW = OPENED + 120 * DAY + 3_600_000;
 
@@ -179,6 +181,52 @@ describe('the practice shop', () => {
     const art = await get('/art/stoneware-mug.svg');
     expect(art.headers['content-type']).toContain('image/svg+xml');
     expect(art.body).toContain('<svg');
+  });
+});
+
+describe('replays', () => {
+  const SECRET = 'test-replay-secret';
+  const signed = (at: number) => ({
+    'pennydrop-replay-at': String(at),
+    'pennydrop-replay-signature': createHmac('sha256', SECRET).update(`replay:${at}`).digest('hex'),
+  });
+  // A moment when the mug's price differed from now, so the page can only be the past one.
+  const mug = findProduct('stoneware-mug')!;
+  const then = Array.from({ length: 100 }, (_, i) => NOW - (i + 1) * DAY).find(
+    (t) => quote(mug, t, DEFAULTS.fickle).price !== quote(mug, NOW, DEFAULTS.fickle).price,
+  )!;
+
+  it('serves the page as it stood at a signed moment', async () => {
+    const get = await start({ replaySecret: SECRET });
+    const page = await get('/p/stoneware-mug', { headers: signed(then) });
+    expect(page.status).toBe(200);
+    expect(page.body).toContain(
+      `<span class="price-now">${formatPence(quote(mug, then, DEFAULTS.fickle).price)}</span>`,
+    );
+  });
+
+  it('shows the past in the shop’s usual layout, without today’s chaos or failures', async () => {
+    const get = await start({ replaySecret: SECRET, random: () => 0 });
+    await get('/_chaos/state', { method: 'PUT', body: { ...fast, layout: 'redesign' } });
+    expect((await get('/p/stoneware-mug', { headers: signed(then) })).body).toContain('price-now');
+    // Brittle fails 30% of visits, and this "roll" would be one of them; a replay isn't a visit.
+    expect((await get('/p/stoneware-mug', { host: 'brittle' })).status).toBe(500);
+    expect((await get('/p/stoneware-mug', { host: 'brittle', headers: signed(then) })).status).toBe(
+      200,
+    );
+  });
+
+  it('refuses an unsigned, forged or impossible replay, rather than answer with today', async () => {
+    const get = await start({ replaySecret: SECRET });
+    const forged = { ...signed(then), 'pennydrop-replay-at': String(then - DAY) };
+    expect((await get('/p/stoneware-mug', { headers: forged })).status).toBe(403);
+    expect(
+      (await get('/p/stoneware-mug', { headers: { 'pennydrop-replay-at': String(then) } })).status,
+    ).toBe(403);
+    expect((await get('/p/stoneware-mug', { headers: signed(OPENED - DAY) })).status).toBe(422);
+    expect((await get('/p/stoneware-mug', { headers: signed(NOW + DAY) })).status).toBe(422);
+    // A shop that shares no secret takes no replays at all.
+    expect((await (await start())('/p/stoneware-mug', { headers: signed(then) })).status).toBe(403);
   });
 });
 

@@ -10,6 +10,7 @@ import {
   defaultRange,
   extremes,
   historyStats,
+  liveFrom,
   rangeDomain,
   soldOutBands,
   stepPoints,
@@ -87,6 +88,7 @@ function Product({
   const domain = rangeDomain(range, watch.history, now);
   const span = extremes(points, domain);
   const stats = historyStats(watch.history, now);
+  const live = liveFrom(watch.history);
   const problem = trouble(watch);
   const lastGood = watch.lastSuccessAt ? Date.parse(watch.lastSuccessAt) : null;
   const age = lastGood === null ? 0 : (now - lastGood) / (watch.intervalSeconds * 1000);
@@ -309,11 +311,18 @@ function Product({
               failures={(checks.data ?? [])
                 .filter((check) => !isGoodOutcome(check.outcome))
                 .map((check) => Date.parse(check.startedAt))}
-              events={events.flatMap((event) => {
-                const label = chartFlag(event.kind);
-                const t = Date.parse(event.at);
-                return label && t >= domain[0] ? [{ t, label }] : [];
-              })}
+              events={[
+                ...events.flatMap((event) => {
+                  const label = chartFlag(event.kind);
+                  const t = Date.parse(event.at);
+                  return label && t >= domain[0] ? [{ t, label }] : [];
+                }),
+                // Where the replayed history ends and real readings begin.
+                ...(live !== null && Number.isFinite(live) && live >= domain[0]
+                  ? [{ t: live, label: 'Live' }]
+                  : []),
+              ]}
+              liveFrom={live}
               onTargetChange={target === null ? undefined : moveTarget}
               targetStep={step}
               label={`${watch.label}: price history, ${
@@ -326,6 +335,11 @@ function Product({
                   `Lowest ${formatMoney(span.low, currency)} · highest ${formatMoney(span.high, currency)} in this range`}
               </span>
               {target !== null && <span>Drag the copper line to move your target.</span>}
+              {live !== null && (
+                <span className="w-full">
+                  Lighter: history replayed from the shop’s own past pages, before we were watching.
+                </span>
+              )}
             </p>
           </>
         ) : (

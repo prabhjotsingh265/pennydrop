@@ -8,7 +8,8 @@
     "start": "node dist/main.js",
     "typecheck": "tsc",
     "test": "vitest run",
-    "seed": "tsx src/seed.ts"
+    "seed": "tsx src/seed.ts",
+    "replay": "tsx src/replay-cli.ts"
   },
   "dependencies": {
     "@pennydrop/alerts": "workspace:*",

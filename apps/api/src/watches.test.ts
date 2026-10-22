@@ -179,6 +179,7 @@ describe('the watchlist', () => {
     // The product page has all of it.
     const detail = (await me.get(watch.id)).json();
     expect(detail.watch.history).toHaveLength(3);
+    expect(detail.watch.history[0]).toMatchObject({ price: 4000, replayed: false });
     // No "was" price showing, so no discount to check.
     expect(detail.discount).toBeNull();
 

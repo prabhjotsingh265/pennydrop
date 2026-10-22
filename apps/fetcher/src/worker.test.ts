@@ -11,14 +11,17 @@ import {
   type IngestJob,
 } from '@pennydrop/queue';
 import { buildShop } from '@pennydrop/shop/app';
-import { SettingsStore } from '@pennydrop/shop/settings';
-import { Queue, Worker } from 'bullmq';
+import { findProduct } from '@pennydrop/shop/catalogue';
+import { DAY, quote } from '@pennydrop/shop/prices';
+import { DEFAULTS, SettingsStore } from '@pennydrop/shop/settings';
+import { Queue, Worker, type Job } from 'bullmq';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { createChecker } from './check.ts';
 import { createFetchProcessor } from './worker.ts';
 
 const connection = redisConnection();
 const settings = new SettingsStore();
+const REPLAY_SECRET = 'test-replay-secret';
 let server: Server;
 let port = 0;
 let prefix = '';
@@ -29,7 +32,7 @@ let gate: SiteGate;
 let breaker: Breaker;
 
 beforeAll(async () => {
-  server = createServer(buildShop({ settings, random: () => 0.5 }));
+  server = createServer(buildShop({ settings, random: () => 0.5, replaySecret: REPLAY_SECRET }));
   await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve));
   port = (server.address() as AddressInfo).port;
 });
@@ -57,6 +60,7 @@ beforeEach(() => {
     ingest,
     lane: 'http',
     worker: 'test',
+    replaySecret: REPLAY_SECRET,
   });
   worker = new Worker(QUEUES.fetchHttp, processor, { connection, prefix, concurrency: 5 });
 });
@@ -108,6 +112,63 @@ async function reports(count: number, timeoutMs = 10_000): Promise<CheckReport[]
   }
   throw new Error(`Expected ${count} reports, got ${(await ingest.getJobs(['waiting'])).length}.`);
 }
+
+describe('replays', () => {
+  const mug = findProduct('stoneware-mug')!;
+
+  it('reads the page as it stood at the past moment asked for', async () => {
+    // A moment when the mug cost something other than now, so only the past page has that price.
+    const now = Date.now();
+    const then = Array.from({ length: 60 }, (_, i) => now - (i + 1) * DAY).find(
+      (t) => quote(mug, t, DEFAULTS.fickle).price !== quote(mug, now, DEFAULTS.fickle).price,
+    )!;
+    // Today's shop is redesigned; the past one wasn't.
+    settings.update('fickle', { layout: 'redesign' });
+    await fetches.add(
+      'check',
+      job('fickle', '/p/stoneware-mug', { reason: 'replay', scheduledFor: then }),
+      { jobId: 'replay-mug' },
+    );
+    const [report] = await reports(1);
+    expect(report).toMatchObject({
+      outcome: 'ok',
+      amount: quote(mug, then, DEFAULTS.fickle).price,
+    });
+  });
+
+  it('neither asks the breaker nor tells it: a replay says nothing of the live site’s health', async () => {
+    for (let i = 0; i < 5; i++) await breaker.report('brittle.localhost', false);
+    const before = await breaker.state('brittle.localhost');
+    expect(before.state).toBe('open');
+    await fetches.add(
+      'check',
+      job('brittle', '/p/stoneware-mug', { reason: 'replay', scheduledFor: Date.now() - DAY }),
+      { jobId: 'replay-brittle' },
+    );
+    const [report] = await reports(1);
+    expect(report).toMatchObject({ outcome: 'ok', breaker: { change: null } });
+    expect(await breaker.state('brittle.localhost')).toEqual(before);
+  });
+
+  it('fails a replay it can’t sign, rather than fetch today’s page', async () => {
+    const unsigned = createFetchProcessor({
+      checker: createChecker({ userAgent: 'PennydropBot/test', guard: {} }),
+      gate,
+      breaker,
+      ingest,
+      lane: 'http',
+      worker: 'test',
+    });
+    const data = job('fickle', '/p/stoneware-mug', {
+      reason: 'replay',
+      scheduledFor: Date.now() - DAY,
+    });
+    await unsigned({ id: 'replay-unsigned', data } as Job<FetchJob>);
+    const [report] = await reports(1);
+    expect(report).toMatchObject({ outcome: 'http_error', amount: null });
+    expect(report!.detail).toContain('REPLAY_SECRET');
+  });
+});
 
 describe('the fetch worker', () => {
   it('checks a product and hands the result to ingest, under the same job id', async () => {

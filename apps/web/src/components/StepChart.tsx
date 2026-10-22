@@ -49,6 +49,8 @@ interface StepChartProps {
   failures?: readonly number[];
   /** Turns on the hover readout; says when a moment was, in words. */
   describeTime?: (t: number) => string;
+  /** Before this, the history was replayed from the shop's past pages: drawn lighter. */
+  liveFrom?: number | null;
   label: string;
 }
 
@@ -102,11 +104,14 @@ export function StepChart({
   bands = [],
   failures = [],
   describeTime,
+  liveFrom = null,
   label,
 }: StepChartProps) {
   const reduced = useReducedMotion();
   const fadeId = useId();
   const hatchId = useId();
+  const pastId = useId();
+  const liveId = useId();
   const [hoverT, setHoverT] = useState<number | null>(null);
   const [boxRef, width] = useWidth<HTMLDivElement>();
   const coinRef = useRef<SVGGElement>(null);
@@ -133,8 +138,6 @@ export function StepChart({
     .range([innerHeight, 0]);
 
   const current = priceAt(points, now);
-  // Drawn from the left edge of the window, starting at the price in force
-  // there; anything older would land off the chart.
   // Drawn from the left edge of the window, or from the first reading if that came later:
   // a line before anything was seen would claim a price nobody saw.
   const start = Math.max(domain[0], points[0]?.t ?? domain[0]);
@@ -155,6 +158,8 @@ export function StepChart({
 
   const coinX = x(now);
   const coinY = y(current);
+  // Where replayed history gives way to live readings, in pixels (all of it, while there are none).
+  const split = liveFrom === null ? null : Math.min(Math.max(x(Math.min(liveFrom, now)), 0), coinX);
   const targetY = target == null ? Number.NaN : y(target);
 
   // The coin's x follows the line directly; its y goes through the physics.
@@ -331,13 +336,47 @@ export function StepChart({
                 <path d={stepArea(visible) ?? ''} fill={`url(#${CSS.escape(fadeId)})`} />
               </>
             )}
-            <path
-              d={stepLine(visible) ?? ''}
-              fill="none"
-              stroke="var(--ink)"
-              strokeWidth={compact ? 1.5 : 2}
-              strokeLinejoin="round"
-            />
+            {split === null ? (
+              <path
+                d={stepLine(visible) ?? ''}
+                fill="none"
+                stroke="var(--ink)"
+                strokeWidth={compact ? 1.5 : 2}
+                strokeLinejoin="round"
+              />
+            ) : (
+              // One line, drawn twice and clipped: lighter where it was replayed, so it never breaks.
+              <>
+                <defs>
+                  <clipPath id={pastId}>
+                    <rect
+                      x={-margin.left}
+                      y={-margin.top}
+                      width={split + margin.left}
+                      height={height}
+                    />
+                  </clipPath>
+                  <clipPath id={liveId}>
+                    <rect x={split} y={-margin.top} width={width} height={height} />
+                  </clipPath>
+                </defs>
+                {[
+                  { id: pastId, opacity: 0.35 },
+                  { id: liveId, opacity: 1 },
+                ].map((part) => (
+                  <path
+                    key={part.id}
+                    d={stepLine(visible) ?? ''}
+                    fill="none"
+                    stroke="var(--ink)"
+                    strokeOpacity={part.opacity}
+                    strokeWidth={compact ? 1.5 : 2}
+                    strokeLinejoin="round"
+                    clipPath={`url(#${CSS.escape(part.id)})`}
+                  />
+                ))}
+              </>
+            )}
 
             {/* The target: a slot with a gap where the coin passes through. */}
             {target != null && (
@@ -457,6 +496,9 @@ export function StepChart({
             </div>
           )}
           <div className="text-ink-2">{describeTime(hoverT)}</div>
+          {liveFrom !== null && hoverT < liveFrom && (
+            <div className="text-ink-2 italic">Replayed from the shop’s past page</div>
+          )}
         </div>
       )}
     </div>

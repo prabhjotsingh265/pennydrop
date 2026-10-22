@@ -14,7 +14,8 @@ import {
 } from './pages/other.ts';
 import { productPage, type Listed } from './pages/product.ts';
 import { formatPence, quote } from './prices.ts';
-import { SHOPS, SettingsStore, shopFor } from './settings.ts';
+import { REPLAY_AT, REPLAY_SIGNATURE, replayAsk } from './replay.ts';
+import { DEFAULTS, SHOPS, SettingsStore, shopFor } from './settings.ts';
 
 export interface ShopOptions {
   now?: () => number;
@@ -22,6 +23,8 @@ export interface ShopOptions {
   settings?: SettingsStore;
   /** When set, the chaos controls need it. Unset, they're open (local development). */
   chaosToken?: string;
+  /** Shared with Pennydrop's replay job, which signs the past moments it asks for. Unset, replays are refused. */
+  replaySecret?: string;
 }
 
 const RETRY_AFTER_SECONDS = 30;
@@ -39,18 +42,35 @@ export function buildShop(options: ShopOptions = {}) {
   const app = express();
   app.disable('x-powered-by');
 
-  const context = (req: Request) => {
+  // A replay sees the shop as it was: its usual layout and its prices then, with no chaos.
+  const context = (req: Request, res: Response) => {
     const shop = shopFor(req.hostname);
-    const settings = store.get(shop);
+    const replayAt = res.locals.replayAt as number | undefined;
+    const settings = replayAt === undefined ? store.get(shop) : DEFAULTS[shop];
     const priced = (product: Product): Listed => ({
       product,
-      quote: quote(product, now(), settings),
+      quote: quote(product, replayAt ?? now(), settings),
     });
     return { shop, settings, priced };
   };
 
+  app.use((req, res, next) => {
+    const ask = replayAsk(
+      req.get(REPLAY_AT),
+      req.get(REPLAY_SIGNATURE),
+      options.replaySecret,
+      now(),
+    );
+    if (ask && 'refused' in ask) {
+      res.status(ask.status).type('text').send(ask.refused);
+      return;
+    }
+    if (ask) res.locals.replayAt = ask.at;
+    next();
+  });
+
   app.get('/robots.txt', (req, res) => {
-    const { shop, settings } = context(req);
+    const { shop, settings } = context(req, res);
     res
       .type('text/plain')
       .send(
@@ -82,7 +102,9 @@ export function buildShop(options: ShopOptions = {}) {
 
   // Every shop page from here on waits, and may fail, as the shop's settings say.
   app.use(async (req, res, next) => {
-    const { settings } = context(req);
+    // A replay is history, not a visit: it isn't slowed down or failed on purpose.
+    if (res.locals.replayAt !== undefined) return next();
+    const { settings } = context(req, res);
     const [shortest, longest] = settings.latencyMs;
     const wait = shortest + random() * (longest - shortest);
     if (wait > 0) await sleep(wait);
@@ -109,7 +131,7 @@ export function buildShop(options: ShopOptions = {}) {
   });
 
   app.get('/', (req, res) => {
-    const { shop, settings, priced } = context(req);
+    const { shop, settings, priced } = context(req, res);
     const items = PRODUCTS.filter((p) => !p.clearance).map(priced);
     res
       .type('html')
@@ -119,7 +141,7 @@ export function buildShop(options: ShopOptions = {}) {
   app.get('/c/:category', (req, res, next) => {
     const { category } = req.params;
     if (!Object.hasOwn(CATEGORIES, category)) return next();
-    const { shop, settings, priced } = context(req);
+    const { shop, settings, priced } = context(req, res);
     const items = PRODUCTS.filter((p) => p.category === category && !p.clearance).map(priced);
     const title = CATEGORIES[category as keyof typeof CATEGORIES];
     res
@@ -132,7 +154,7 @@ export function buildShop(options: ShopOptions = {}) {
     (clearance: boolean) => (req: Request, res: Response, next: NextFunction) => {
       const product = findProduct(String(req.params.slug));
       if (!product || product.clearance !== clearance) return next();
-      const { shop, settings, priced } = context(req);
+      const { shop, settings, priced } = context(req, res);
       const others = PRODUCTS.filter(
         (p) => p.category === product.category && p.slug !== product.slug && !p.clearance,
       )
@@ -149,7 +171,7 @@ export function buildShop(options: ShopOptions = {}) {
   app.get('/api/price/:slug', (req, res, next) => {
     const product = findProduct(req.params.slug);
     if (!product) return next();
-    const { quote: q } = context(req).priced(product);
+    const { quote: q } = context(req, res).priced(product);
     res.json({
       price: (q.price / 100).toFixed(2),
       currency: q.currency,
@@ -161,7 +183,7 @@ export function buildShop(options: ShopOptions = {}) {
   });
 
   app.use((req, res) => {
-    const { shop, settings } = context(req);
+    const { shop, settings } = context(req, res);
     res.status(404).type('html').send(notFoundPage(shop, settings));
   });
 

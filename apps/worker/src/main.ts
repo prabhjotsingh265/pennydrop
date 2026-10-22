@@ -19,6 +19,7 @@ import {
 import { dispatch, type DispatchResult } from './dispatch.ts';
 import { ingest } from './ingest.ts';
 import { pruneChecks, pruneScreenshots } from './maintenance.ts';
+import { continueReplay } from './replay.ts';
 
 // The only process with the database: it decides what to check and records what was found.
 const db = createDb();
@@ -85,6 +86,12 @@ const ingester = new Worker<IngestJob>(
   QUEUES.ingest,
   async (job) => {
     const result = await ingest({ db, queues }, job.data);
+    // History, replayed one moment at a time: no dashboard needs telling about each. The next
+    // moment's job id is fixed, so carrying on after a repeat of this one queues nothing twice.
+    if (job.data.job.reason === 'replay') {
+      await continueReplay({ db, http: queues.http }, job.data.job);
+      return result;
+    }
     // Recorded and committed: open dashboards can show it now. A missed message only
     // costs a refresh, so it never fails the job.
     if (result.recorded) {

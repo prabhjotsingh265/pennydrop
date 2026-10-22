@@ -8,6 +8,7 @@ import type {
 } from '@pennydrop/queue';
 import { mkdir, writeFile } from 'node:fs/promises';
 import { dirname } from 'node:path';
+import { replayHeaders } from '@pennydrop/fetch';
 import { screenshotPath } from '@pennydrop/queue';
 import { DelayedError, type Job, type Queue } from 'bullmq';
 import type { CheckResult, createChecker } from './check.ts';
@@ -43,6 +44,8 @@ export interface FetchProcessorDeps {
   leaseMs?: number;
   /** Where failed browser checks leave their screenshots. Without it, none are kept. */
   screenshotDir?: string;
+  /** Signs replays' past moments for the practice shop. Without it, replays fail. */
+  replaySecret?: string;
   now?: () => number;
 }
 
@@ -158,7 +161,23 @@ export function createFetchProcessor(deps: FetchProcessorDeps) {
         { ...ingestJobOptions, jobId: id },
       );
 
-    const decision = await deps.breaker.allow(data.host, id);
+    // A replay must reach the shop signed; unsigned, it would answer with today's page.
+    const replay = data.reason === 'replay';
+    if (replay && !deps.replaySecret) {
+      await send({
+        ...skipped(data, now(), deps.worker, now()),
+        outcome: 'http_error',
+        detail: 'Replays aren’t set up on this fetcher: REPLAY_SECRET is missing.',
+        notBefore: null,
+        retryAfterSeconds: null,
+        breaker: { change: null, openUntil: null },
+      });
+      return;
+    }
+
+    // A replay neither asks the breaker nor tells it: the shop answers replays without its
+    // staged failures, so they say nothing about how the live site is doing.
+    const decision = replay ? { go: true as const } : await deps.breaker.allow(data.host, id);
     if (!decision.go) {
       await send(skipped(data, decision.retryAt, deps.worker, now()));
       return;
@@ -180,9 +199,11 @@ export function createFetchProcessor(deps: FetchProcessorDeps) {
         url: data.url,
         recipe: data.recipe,
         mode: deps.lane === 'browser' ? 'browser' : 'http',
-        etag: data.etag,
-        lastModified: data.lastModified,
+        // A replay wants the past page itself, never "unchanged since", which only today's can say.
+        etag: replay ? null : data.etag,
+        lastModified: replay ? null : data.lastModified,
         robots: data.robots,
+        headers: replay ? replayHeaders(data.scheduledFor, deps.replaySecret!) : undefined,
       });
       const finishedAt = now();
 
@@ -199,7 +220,7 @@ export function createFetchProcessor(deps: FetchProcessorDeps) {
           ? true
           : null;
       const change =
-        health === null ? { change: null } : await deps.breaker.report(data.host, health);
+        health === null || replay ? { change: null } : await deps.breaker.report(data.host, health);
       if (change.change === 'opened') notBefore = Math.max(notBefore ?? 0, change.openUntil);
 
       await send({

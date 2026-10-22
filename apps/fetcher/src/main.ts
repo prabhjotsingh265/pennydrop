@@ -1,4 +1,5 @@
 import { hostname } from 'node:os';
+import { replaySecretFromEnv } from '@pennydrop/fetch';
 import { Breaker, QUEUES, SiteGate, redisConnection, type IngestJob } from '@pennydrop/queue';
 import { Queue, Worker } from 'bullmq';
 import { BrowserPool } from './browser.ts';
@@ -37,6 +38,7 @@ const processor = createFetchProcessor({
   ingest,
   lane,
   worker: `${hostname()}/${lane}`,
+  replaySecret: replaySecretFromEnv(),
 });
 
 const worker = new Worker(lane === 'browser' ? QUEUES.fetchBrowser : QUEUES.fetchHttp, processor, {

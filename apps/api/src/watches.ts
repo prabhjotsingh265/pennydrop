@@ -72,7 +72,7 @@ export async function summarise(
           ...(since ? { lastSeenAt: { gte: since } } : {}),
         },
         orderBy: { firstSeenAt: 'asc' },
-        select: { targetId: true, firstSeenAt: true, price: true, inStock: true },
+        select: { targetId: true, firstSeenAt: true, price: true, inStock: true, replayed: true },
       })
     : [];
   const history = new Map<string, WatchSummary['history']>();
@@ -80,7 +80,12 @@ export async function summarise(
     // A price that began before the window still held at its start.
     const t = since && point.firstSeenAt < since ? since : point.firstSeenAt;
     const list = history.get(point.targetId) ?? [];
-    list.push({ t: t.toISOString(), price: minor(point.price), inStock: point.inStock });
+    list.push({
+      t: t.toISOString(),
+      price: minor(point.price),
+      inStock: point.inStock,
+      replayed: point.replayed,
+    });
     history.set(point.targetId, list);
   }
 

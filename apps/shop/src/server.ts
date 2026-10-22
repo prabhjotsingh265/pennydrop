@@ -1,7 +1,11 @@
 import { buildShop } from './app.ts';
+import { replaySecretFromEnv } from './replay.ts';
 
 const port = Number(process.env.SHOP_PORT ?? 4000);
-const app = buildShop({ chaosToken: process.env.SHOP_CHAOS_TOKEN || undefined });
+const app = buildShop({
+  chaosToken: process.env.SHOP_CHAOS_TOKEN || undefined,
+  replaySecret: replaySecretFromEnv(),
+});
 
 const server = app.listen(port, '0.0.0.0', () => {
   console.log(`Practice shops: http://fickle.localhost:${port} · slowpoke · brittle`);

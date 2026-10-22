@@ -27,6 +27,17 @@ export function stepPoints(history: History): { t: number; price: number }[] {
   return history.flatMap((p) => (p.price === null ? [] : [{ t: Date.parse(p.t), price: p.price }]));
 }
 
+/**
+ * Where live readings begin, when history before them was replayed: the
+ * chart draws everything earlier lighter. Null when nothing was replayed;
+ * infinity while every reading so far is replayed.
+ */
+export function liveFrom(history: History): number | null {
+  if (!history.some((p) => p.replayed)) return null;
+  const live = history.find((p) => !p.replayed);
+  return live ? Date.parse(live.t) : Number.POSITIVE_INFINITY;
+}
+
 /** Stretches when the product was out of stock: hatched on the chart, never just a colour. */
 export function soldOutBands(history: History, now: number): { from: number; to: number }[] {
   const bands: { from: number; to: number }[] = [];

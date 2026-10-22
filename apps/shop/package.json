@@ -5,7 +5,8 @@
   "exports": {
     "./app": "./src/app.ts",
     "./settings": "./src/settings.ts",
-    "./catalogue": "./src/catalogue.ts"
+    "./catalogue": "./src/catalogue.ts",
+    "./prices": "./src/prices.ts"
   },
   "scripts": {
     "dev": "tsx watch src/server.ts",

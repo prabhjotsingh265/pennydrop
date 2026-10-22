@@ -40,6 +40,8 @@ export interface CheckRequest {
   robots?: RobotsRecord | null;
   /** A preview for someone adding the product: rendered in a browser, with a screenshot. */
   forPeople?: boolean;
+  /** Sent with the page request (a replay's signed moment). */
+  headers?: Record<string, string>;
 }
 
 export interface CheckResult {
@@ -255,6 +257,7 @@ export function createChecker(options: CheckerOptions) {
         ...fetchOptions,
         etag: request.etag,
         lastModified: request.lastModified,
+        headers: request.headers,
       });
     } catch (error) {
       timings.http = performance.now() - httpStarted;

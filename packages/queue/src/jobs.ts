@@ -63,6 +63,13 @@ export interface FetchJob {
   maxInFlight: number;
   /** The currency the product was last seen in, to settle "$" and "kr". */
   currency: string | null;
+  /**
+   * Replays only (reason "replay"): `scheduledFor` is the past moment asked
+   * for. The worker queues the moment `stepMs` later, until `until`: the
+   * product's first real reading, or the moment the replay began. `run` tells
+   * one replay from a later one, which may fill moments the first missed.
+   */
+  replay?: { until: number; stepMs: number; run: number };
 }
 
 /** One strategy's reading, kept for "show me why". */
@@ -124,8 +131,11 @@ export interface IngestJob {
  * One job per product per due time, so queueing it twice does nothing. BullMQ
  * ids can't contain ":", hence the dashes.
  */
-export function checkJobId(job: Pick<FetchJob, 'reason' | 'targetId' | 'scheduledFor'>): string {
-  return `${job.reason}-${job.targetId}-${job.scheduledFor}`;
+export function checkJobId(
+  job: Pick<FetchJob, 'reason' | 'targetId' | 'scheduledFor' | 'replay'>,
+): string {
+  const run = job.replay ? `-${job.replay.run}` : '';
+  return `${job.reason}-${job.targetId}-${job.scheduledFor}${run}`;
 }
 
 /** A preview for someone adding a product. Like a fetch job, it carries all the fetcher needs. */

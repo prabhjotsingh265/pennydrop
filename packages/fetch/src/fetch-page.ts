@@ -52,6 +52,8 @@ export interface FetchPageOptions extends GuardOptions {
   lastModified?: string | null;
   /** 'html' refuses anything that isn't a web page; 'text' is for robots.txt. */
   expect?: 'html' | 'text';
+  /** Sent as well, on every hop (a replay's signed moment, for one). */
+  headers?: Record<string, string>;
   connectTimeoutMs?: number;
   headersTimeoutMs?: number;
   totalTimeoutMs?: number;
@@ -223,6 +225,7 @@ export async function fetchPage(target: string, options: FetchPageOptions): Prom
             'accept-encoding': 'gzip, br, deflate',
             ...(options.etag ? { 'if-none-match': options.etag } : {}),
             ...(options.lastModified ? { 'if-modified-since': options.lastModified } : {}),
+            ...options.headers,
           },
         });
         timings.firstByte = performance.now() - hopStarted;
