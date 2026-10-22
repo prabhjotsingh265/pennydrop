@@ -179,6 +179,17 @@ describe('the watchlist', () => {
     // The product page has all of it.
     const detail = (await me.get(watch.id)).json();
     expect(detail.watch.history).toHaveLength(3);
+    // No "was" price showing, so no discount to check.
+    expect(detail.discount).toBeNull();
+
+    await h.db.pricePoint.create({ data: { ...point(0, 0, 2900), wasPrice: 4000n } });
+    // "Was £40.00", but in the 30 days before it was £35.00, then £32.00.
+    expect((await me.get(watch.id)).json().discount).toMatchObject({
+      was: 4000,
+      price: 2900,
+      lowestBefore: 3200,
+      verdict: 'inflated',
+    });
   });
 
   it('lists only your own products', async () => {

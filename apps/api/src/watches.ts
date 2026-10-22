@@ -14,6 +14,7 @@ import { cleanUrl } from '@pennydrop/fetch';
 import type { FastifyInstance, FastifyReply } from 'fastify';
 import { z } from 'zod';
 import type { LiveMessage } from '@pennydrop/queue';
+import { discountCheck } from './discount.ts';
 import type { Previews } from './previews.ts';
 import { vetAddress, type VetDeps } from './sites.ts';
 
@@ -380,6 +381,11 @@ export async function watchRoutes(app: FastifyInstance, deps: WatchDeps) {
       orderBy: { at: 'desc' },
       take: 50,
     });
+    const points = await db.pricePoint.findMany({
+      where: { targetId: row.targetId },
+      orderBy: { firstSeenAt: 'asc' },
+      select: { firstSeenAt: true, price: true, wasPrice: true, currency: true },
+    });
     return {
       watch: watch!,
       events: events.map((event) => ({
@@ -389,6 +395,7 @@ export async function watchRoutes(app: FastifyInstance, deps: WatchDeps) {
         details: event.details as Record<string, unknown>,
         siteWide: event.targetId === null,
       })),
+      discount: discountCheck(points),
     } satisfies WatchDetail;
   });
 

@@ -25,6 +25,7 @@ import { distanceWords, trouble, waiting } from '../../lib/watchlist.ts';
 import { Button, buttonClass } from '../../ui/Button.tsx';
 import { Notice } from '../../ui/Notice.tsx';
 import { CheckLog } from './CheckLog.tsx';
+import { DiscountPanel } from './DiscountPanel.tsx';
 import { GroupControl } from './GroupControl.tsx';
 import { RepickPanel, startRepick } from './Repick.tsx';
 import { Settings } from './Settings.tsx';
@@ -46,7 +47,7 @@ function Product({
   eager: boolean;
   onEager: (on: boolean) => void;
 }) {
-  const { watch, events } = detail;
+  const { watch, events, discount } = detail;
   const navigate = useNavigate();
   const me = useMe().data!;
   const words = dateWords(me.workspace.timezone);
@@ -253,6 +254,8 @@ function Product({
           ))}
         </dl>
       )}
+
+      {discount && <DiscountPanel check={discount} day={words.day} />}
 
       <section aria-labelledby="history">
         <div className="mb-4 flex flex-wrap items-center justify-between gap-3">

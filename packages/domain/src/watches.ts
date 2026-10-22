@@ -100,10 +100,36 @@ export interface WatchEvent {
   siteWide: boolean;
 }
 
+/**
+ * Whether a shop's "was" price is one it really charged. In the EU it must be
+ * the lowest price of the 30 days before the reduction (Directive 2019/2161).
+ */
+export interface DiscountCheck {
+  /** The "was" price the shop shows now, and the price. */
+  was: number;
+  price: number;
+  currency: string;
+  /** When the shop began showing a "was" price. */
+  since: string;
+  /** The lowest price we saw in the 30 days before that, and when it began; null if we saw none. */
+  lowestBefore: number | null;
+  lowestAt: string | null;
+  /** Days of history before the sale, up to 30. */
+  days: number;
+  /**
+   * "inflated": we saw it cheaper than the "was" price in those 30 days.
+   * "honest": we watched all 30 days and never saw it cheaper.
+   * "too_soon": we haven't watched long enough to say.
+   */
+  verdict: 'honest' | 'inflated' | 'too_soon';
+}
+
 export interface WatchDetail {
   /** With its whole history, not just the last 30 days. */
   watch: WatchSummary;
   events: WatchEvent[];
+  /** Only while the shop shows a "was" price. */
+  discount: DiscountCheck | null;
 }
 
 /** One check of a product page, for the check log and its waterfall. */

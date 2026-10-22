@@ -21,6 +21,7 @@ export {
   type BulkAddInput,
   type BulkResult,
   type CheckSummary,
+  type DiscountCheck,
   type UpdateWatchInput,
   type WatchDetail,
   type WatchEvent,
