@@ -233,7 +233,10 @@ export async function alertRoutes(app: FastifyInstance, { db, config, mail }: Al
       take: limit + 1,
       include: {
         watch: { include: { target: { include: { site: { select: { host: true } } } } } },
-        deliveries: { include: { channel: { select: { name: true, kind: true } } } },
+        deliveries: {
+          include: { channel: { select: { name: true, kind: true } } },
+          orderBy: { channel: { createdAt: 'asc' } },
+        },
       },
     });
     const page = rows.slice(0, limit);

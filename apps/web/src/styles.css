@@ -178,3 +178,69 @@
     top: 40%;
   }
 }
+
+/* A new alert: a penny drops into the bell, under gravity as the mark's coin does, and the bell rings. */
+.penny {
+  animation: penny-drop 950ms both;
+}
+
+@keyframes penny-drop {
+  0% {
+    opacity: 0;
+    transform: translate(-50%, -30px);
+    animation-timing-function: cubic-bezier(0.55, 0, 1, 0.45);
+  }
+  10% {
+    opacity: 1;
+  }
+  50% {
+    transform: translate(-50%, 4px);
+    animation-timing-function: cubic-bezier(0, 0.55, 0.45, 1);
+  }
+  64% {
+    transform: translate(-50%, -2px);
+    animation-timing-function: cubic-bezier(0.55, 0, 1, 0.45);
+  }
+  78% {
+    opacity: 1;
+    transform: translate(-50%, 4px);
+  }
+  100% {
+    opacity: 0;
+    transform: translate(-50%, 11px) scale(0.35);
+  }
+}
+
+.bell-ring {
+  display: inline-block;
+  transform-origin: 50% 12%;
+  animation: bell-ring 900ms 470ms both;
+}
+
+@keyframes bell-ring {
+  0%,
+  100% {
+    transform: rotate(0);
+  }
+  15% {
+    transform: rotate(16deg);
+  }
+  35% {
+    transform: rotate(-12deg);
+  }
+  55% {
+    transform: rotate(7deg);
+  }
+  75% {
+    transform: rotate(-3deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .penny {
+    display: none;
+  }
+  .bell-ring {
+    animation: none;
+  }
+}

@@ -26,3 +26,24 @@ export function useLiveStatus(): boolean {
 export function usePollInterval(): number {
   return useLiveStatus() ? 5 * 60_000 : 30_000;
 }
+
+// Alerts that arrived while the dashboard was open: each one drops a penny into the bell.
+let arrivals = 0;
+const arrivalListeners = new Set<() => void>();
+
+export function alertArrived() {
+  arrivals++;
+  for (const listener of arrivalListeners) listener();
+}
+
+/** Counts up once per alert arriving live; 0 until the first. */
+export function useArrivals(): number {
+  return useSyncExternalStore(
+    (onChange) => {
+      arrivalListeners.add(onChange);
+      return () => arrivalListeners.delete(onChange);
+    },
+    () => arrivals,
+    () => 0,
+  );
+}

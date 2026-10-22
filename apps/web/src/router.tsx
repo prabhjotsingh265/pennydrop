@@ -1,5 +1,7 @@
 import { createBrowserRouter, Navigate } from 'react-router';
 import { AddPage } from './app/add/AddPage.tsx';
+import { AlertsPage } from './app/AlertsPage.tsx';
+import { ChannelsPage } from './app/ChannelsPage.tsx';
 import { ChecksPage } from './app/ChecksPage.tsx';
 import { ComparePage } from './app/ComparePage.tsx';
 import { GroupsPage } from './app/GroupsPage.tsx';
@@ -39,6 +41,8 @@ export const router = createBrowserRouter([
       { path: 'checks', element: <ChecksPage /> },
       { path: 'groups', element: <GroupsPage /> },
       { path: 'groups/:id', element: <ComparePage /> },
+      { path: 'alerts', element: <AlertsPage /> },
+      { path: 'channels', element: <ChannelsPage /> },
       { path: 'settings', element: <SettingsPage /> },
     ],
   },

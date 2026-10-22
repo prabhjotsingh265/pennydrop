@@ -13,6 +13,7 @@ import {
 import { Button } from '../ui/Button.tsx';
 import { Field } from '../ui/Field.tsx';
 import { Notice } from '../ui/Notice.tsx';
+import { AlertTiming } from './AlertTiming.tsx';
 import { DeleteAccount } from './DeleteAccount.tsx';
 
 /** The workspace's name and time zone, the account, and taking your data with you. */
@@ -107,6 +108,8 @@ export function SettingsPage() {
           </div>
         )}
       </section>
+
+      <AlertTiming />
 
       <section aria-labelledby="account" className="space-y-2">
         <h2 id="account" className="text-[15px] font-semibold">

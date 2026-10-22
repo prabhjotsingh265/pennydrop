@@ -47,4 +47,15 @@ describe('the workspace schema', () => {
     expect(updateWorkspaceSchema.safeParse({ timezone: 'Mars/Olympus' }).success).toBe(false);
     expect(updateWorkspaceSchema.safeParse({ name: '   ' }).success).toBe(false);
   });
+
+  it('sets and clears quiet hours as a pair', () => {
+    const ok = (body: object) => updateWorkspaceSchema.safeParse(body).success;
+    expect(ok({ quietFrom: 22 * 60, quietUntil: 7 * 60 })).toBe(true);
+    expect(ok({ quietFrom: null, quietUntil: null })).toBe(true);
+    expect(ok({ digest: true, digestAt: 8 * 60 })).toBe(true);
+    expect(ok({ quietFrom: 22 * 60 })).toBe(false);
+    expect(ok({ quietFrom: 22 * 60, quietUntil: null })).toBe(false);
+    expect(ok({ quietFrom: 600, quietUntil: 600 })).toBe(false);
+    expect(ok({ quietFrom: 1_440, quietUntil: 0 })).toBe(false);
+  });
 });

@@ -1,7 +1,6 @@
-import type { RuleKind } from '@pennydrop/domain';
+import { REARM_MARGIN, type RuleKind } from '@pennydrop/domain';
 
-/** "Below target" re-arms only once the price is back this far above it: a wobble alerts once. */
-export const REARM_MARGIN = 0.02;
+export { REARM_MARGIN };
 
 export interface Reading {
   /** Minor units; null when no price showed (out of stock with none given). */

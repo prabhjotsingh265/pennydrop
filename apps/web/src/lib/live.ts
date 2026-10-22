@@ -1,11 +1,11 @@
 import { useQueryClient } from '@tanstack/react-query';
 import { useEffect } from 'react';
-import { setConnected } from './live-status.ts';
+import { alertArrived, setConnected } from './live-status.ts';
 import { keys } from './queries.ts';
 
 /**
- * Opens the dashboard's live stream: when a check lands or the watchlist
- * changes anywhere, the affected data is fetched again, and the cards roll and
+ * Opens the dashboard's live stream: when a check lands, the watchlist changes
+ * or an alert fires, the affected data is fetched again, and the cards roll and
  * reorder by themselves. The browser reconnects on its own if it drops.
  */
 export function useLiveUpdates() {
@@ -26,6 +26,14 @@ export function useLiveUpdates() {
     source.addEventListener('watches', () => {
       void queryClient.invalidateQueries({ queryKey: keys.watches });
       void queryClient.invalidateQueries({ queryKey: keys.groups });
+    });
+    source.addEventListener('alert', () => {
+      // The inbox and the bell; and the rules, as one that fired now waits to re-arm.
+      void queryClient.invalidateQueries({ queryKey: keys.alerts });
+      void queryClient.invalidateQueries({
+        predicate: (query) => query.queryKey[0] === 'watches' && query.queryKey[2] === 'rules',
+      });
+      alertArrived();
     });
     return () => {
       source.close();

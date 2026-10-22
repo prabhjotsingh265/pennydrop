@@ -1,5 +1,5 @@
 import { useQueryClient } from '@tanstack/react-query';
-import { LogOut, Moon, Plus, Settings, Sun } from 'lucide-react';
+import { BellRing, LogOut, Moon, Plus, Settings, Sun } from 'lucide-react';
 import { Link, NavLink, Outlet, useNavigate } from 'react-router';
 import { BrandMark } from '../components/BrandMark.tsx';
 import { authClient } from '../lib/auth-client.ts';
@@ -8,6 +8,7 @@ import { useLiveUpdates } from '../lib/live.ts';
 import { useMe } from '../lib/queries.ts';
 import { useTheme } from '../lib/theme.ts';
 import { buttonClass } from '../ui/Button.tsx';
+import { InboxBell } from './InboxBell.tsx';
 import { ZoneNudge } from './ZoneNudge.tsx';
 
 const navClass = ({ isActive }: { isActive: boolean }) =>
@@ -44,6 +45,12 @@ function AccountMenu() {
           className="flex w-full items-center gap-2 rounded-[8px] px-3 py-2 text-left text-sm hover:bg-surface"
         >
           <Settings size={16} aria-hidden="true" /> Settings
+        </Link>
+        <Link
+          to="/app/channels"
+          className="flex w-full items-center gap-2 rounded-[8px] px-3 py-2 text-left text-sm hover:bg-surface"
+        >
+          <BellRing size={16} aria-hidden="true" /> Alert channels
         </Link>
         <button
           type="button"
@@ -133,6 +140,7 @@ export function Shell() {
               <span className="hidden sm:inline">Add product</span>
               <span className="sr-only sm:hidden">Add product</span>
             </Link>
+            <InboxBell />
             <ThemeToggle />
             <AccountMenu />
           </div>

@@ -34,8 +34,8 @@ export type { CheckFeed, CheckFeedItem, SiteSummary } from './reports.ts';
 export { groupSchema, type GroupDetail, type GroupInput, type GroupSummary } from './groups.ts';
 export {
   CHANNEL_KINDS,
+  REARM_MARGIN,
   RULE_KINDS,
-  alertSettingsSchema,
   channelSchema,
   ruleSchema,
   ruleWords,

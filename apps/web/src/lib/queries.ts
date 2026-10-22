@@ -1,10 +1,13 @@
 import type {
+  AlertSummary,
+  ChannelSummary,
   CheckFeed,
   GroupDetail,
   GroupSummary,
   CheckSummary,
   Me,
   PreviewView,
+  RuleSummary,
   SiteSummary,
   UpdateWatchInput,
   WatchDetail,
@@ -31,6 +34,10 @@ export const keys = {
   groups: ['groups'] as const,
   group: (id: string) => ['groups', id] as const,
   feed: (show: 'all' | 'problems') => ['checks', show] as const,
+  rules: (id: string) => ['watches', id, 'rules'] as const,
+  channels: ['channels'] as const,
+  alerts: ['alerts'] as const,
+  unread: ['alerts', 'unread'] as const,
 };
 
 export function createQueryClient() {
@@ -110,6 +117,8 @@ export function useWatchActions(id: string) {
         keys.watch(id),
         (old) => old && { ...old, watch: { ...watch, history: old.watch.history } },
       );
+      // A new target turns its rule on; a listing no longer yours loses "undercut".
+      void queryClient.invalidateQueries({ queryKey: keys.rules(id) });
       void refreshList();
     },
   });
@@ -180,6 +189,55 @@ export function useGroup(id: string) {
   return useQuery({
     queryKey: keys.group(id),
     queryFn: ({ signal }) => api<GroupDetail>(`/api/groups/${id}`, { signal }),
+    refetchInterval: poll,
+  });
+}
+
+/** Where alerts go. */
+export function useChannels() {
+  return useQuery({
+    queryKey: keys.channels,
+    queryFn: ({ signal }) =>
+      api<{ channels: ChannelSummary[] }>('/api/channels', { signal }).then(
+        (data) => data.channels,
+      ),
+  });
+}
+
+/** The alert rules on one product. */
+export function useRules(id: string) {
+  return useQuery({
+    queryKey: keys.rules(id),
+    queryFn: ({ signal }) =>
+      api<{ rules: RuleSummary[] }>(`/api/watches/${id}/rules`, { signal }).then(
+        (data) => data.rules,
+      ),
+  });
+}
+
+/** The inbox, newest first, a page at a time. */
+export function useAlerts() {
+  const poll = usePollInterval();
+  return useInfiniteQuery({
+    queryKey: [...keys.alerts, 'list'],
+    queryFn: ({ pageParam, signal }) =>
+      api<{ alerts: AlertSummary[]; next: string | null }>(
+        `/api/alerts${pageParam ? `?before=${encodeURIComponent(pageParam)}` : ''}`,
+        { signal },
+      ),
+    initialPageParam: null as string | null,
+    getNextPageParam: (last) => last.next,
+    refetchInterval: poll,
+  });
+}
+
+/** How many alerts nobody has looked at yet, for the bell. */
+export function useUnread() {
+  const poll = usePollInterval();
+  return useQuery({
+    queryKey: keys.unread,
+    queryFn: ({ signal }) =>
+      api<{ count: number }>('/api/alerts/unread', { signal }).then((data) => data.count),
     refetchInterval: poll,
   });
 }

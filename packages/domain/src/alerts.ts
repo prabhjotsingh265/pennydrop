@@ -10,6 +10,9 @@ export const RULE_KINDS = [
 ] as const;
 export type RuleKind = (typeof RULE_KINDS)[number];
 
+/** "Below target" re-arms only once the price is back this far above it: a wobble alerts once. */
+export const REARM_MARGIN = 0.02;
+
 /** A rule to add or change on a product. "Drops by X%" needs its X. */
 export const ruleSchema = z
   .strictObject({
@@ -91,7 +94,7 @@ export interface AlertSummary {
   price: number | null;
   previousPrice: number | null;
   currency: string | null;
-  /** Words for each rule met, ready to show: "Below your £55.00 target". */
+  /** Words for each rule met, ready to show: "At or below your £55.00 target". */
   reasons: string[];
   /** A big jump, confirmed by a second check first. */
   verified: boolean;
@@ -99,12 +102,3 @@ export interface AlertSummary {
   readAt: string | null;
   deliveries: { channel: string; kind: ChannelKind; status: DeliveryStatus }[];
 }
-
-/** Quiet hours and the daily digest, as minutes after midnight in the workspace's time zone. */
-const minutes = z.number().int().min(0).max(1_439);
-export const alertSettingsSchema = z.strictObject({
-  quietFrom: minutes.nullable().optional(),
-  quietUntil: minutes.nullable().optional(),
-  digest: z.boolean().optional(),
-  digestAt: minutes.optional(),
-});

@@ -24,6 +24,7 @@ import { patina } from '../../lib/tint.ts';
 import { distanceWords, trouble, waiting } from '../../lib/watchlist.ts';
 import { Button, buttonClass } from '../../ui/Button.tsx';
 import { Notice } from '../../ui/Notice.tsx';
+import { AlertRules } from './AlertRules.tsx';
 import { CheckLog } from './CheckLog.tsx';
 import { DiscountPanel } from './DiscountPanel.tsx';
 import { GroupControl } from './GroupControl.tsx';
@@ -352,6 +353,8 @@ function Product({
           </button>
         </p>
       )}
+
+      <AlertRules watch={watch} />
 
       <GroupControl watch={watch} actions={actions} />
 
