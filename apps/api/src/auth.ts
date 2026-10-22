@@ -3,7 +3,7 @@ import { MIN_PASSWORD_LENGTH } from '@pennydrop/domain';
 import { betterAuth } from 'better-auth';
 import { prismaAdapter } from 'better-auth/adapters/prisma';
 import type { Config } from './config.ts';
-import type { Mailer } from '@pennydrop/alerts';
+import { channelKey, hintFor, seal, type Mailer } from '@pennydrop/alerts';
 
 const DAY = 86_400;
 
@@ -31,6 +31,7 @@ export async function removeWorkspacesOf(db: Db, userId: string): Promise<void> 
  * sign-in. Every new account gets its own workspace straight away.
  */
 export function createAuth({ db, mail, config }: { db: Db; mail: Mailer; config: Config }) {
+  const key = channelKey(config.channelsKey);
   return betterAuth({
     appName: 'Pennydrop',
     baseURL: config.appUrl,
@@ -68,10 +69,20 @@ export function createAuth({ db, mail, config }: { db: Db; mail: Mailer; config:
       user: {
         create: {
           after: async (user) => {
+            const email = { kind: 'email' as const, address: user.email };
             await db.workspace.create({
               data: {
                 name: 'My watchlist',
                 memberships: { create: { userId: user.id, role: 'owner' } },
+                // Alerts can reach you from the start: by email, to the address you signed up with.
+                channels: {
+                  create: {
+                    kind: 'email',
+                    name: 'My email',
+                    settings: seal(email, key),
+                    hint: hintFor(email),
+                  },
+                },
               },
             });
           },

@@ -104,6 +104,25 @@ describe('send', () => {
     });
   });
 
+  it('refuses a private address written as an IP, which skips the DNS lookup entirely', async () => {
+    for (const url of [
+      'https://10.0.0.5/hook',
+      'https://[::1]/hook',
+      'https://169.254.169.254/latest',
+    ]) {
+      const started = Date.now();
+      expect(
+        await send({ kind: 'webhook', url, secret: 's' }, message, 'd9', { ...deps, guard: {} }),
+      ).toEqual({
+        ok: false,
+        permanent: true,
+        error: 'That address is inside a private network.',
+      });
+      // Refused before any connection is tried: no waiting for a timeout.
+      expect(Date.now() - started).toBeLessThan(500);
+    }
+  });
+
   it('never reaches a private network', async () => {
     const result = await send(
       { kind: 'webhook', url: `${base}/hook`, secret: 's' },

@@ -237,6 +237,10 @@ export async function watchRoutes(app: FastifyInstance, deps: WatchDeps) {
             label: input.label || null,
             targetPrice: input.targetPrice === undefined ? null : BigInt(input.targetPrice),
             intervalSeconds: input.intervalSeconds,
+            // A target is set to hear when it's reached: that rule comes with it.
+            ...(input.targetPrice === undefined
+              ? {}
+              : { rules: { create: { kind: 'below_target' } } }),
           },
         });
         await syncTarget(tx, target.id);
@@ -458,6 +462,17 @@ export async function watchRoutes(app: FastifyInstance, deps: WatchDeps) {
           groupId: changes.groupId,
         },
       });
+      if (changes.targetPrice) {
+        await tx.alertRule.upsert({
+          where: { watchId_kind: { watchId: row.id, kind: 'below_target' } },
+          create: { watchId: row.id, kind: 'below_target' },
+          update: {},
+        });
+      }
+      // Not your listing any more: nobody can undercut it.
+      if (changes.isMine === false) {
+        await tx.alertRule.deleteMany({ where: { watchId: row.id, kind: 'undercut' } });
+      }
       if (changes.intervalSeconds !== undefined || changes.paused !== undefined) {
         await syncTarget(tx, row.targetId);
       }

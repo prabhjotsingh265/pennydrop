@@ -22,13 +22,15 @@ export function harness() {
     authSecret: 'test-secret-that-is-long-enough-0123456789',
     mail: { from: 'Pennydrop <hello@pennydrop.test>' },
     localShops: false,
+    channelsKey: 'test-channels-key',
     screenshotDir: mkdtempSync(join(tmpdir(), 'pennydrop-api-shots-')),
   };
   const wake = vi.fn(async () => {});
   // No real DNS in tests: names resolve to a public documentation address unless told otherwise.
   const resolved = new Map<string, string[]>();
   const lookup: Lookup = async (host) => resolved.get(host) ?? ['93.184.215.14'];
-  const auth = createAuth({ db, mail: async (email) => void sent.push(email), config });
+  const mail = async (email: Email) => void sent.push(email);
+  const auth = createAuth({ db, mail, config });
   const previews = new FakePreviews();
   // One process, so "publishing" is handing the message straight to the hub.
   const live = new LiveHub(db);
@@ -37,7 +39,18 @@ export function harness() {
     published.push(message);
     await live.receive(message);
   };
-  const app = buildApp({ db, auth, config, wake, previews, live, publish, lookup, logger: false });
+  const app = buildApp({
+    db,
+    auth,
+    config,
+    wake,
+    previews,
+    live,
+    publish,
+    mail,
+    lookup,
+    logger: false,
+  });
 
   const cookiesFrom = (header: string | string[] | undefined) =>
     ([] as string[])

@@ -91,26 +91,26 @@ enum EventKind {
 
 /// A shop's hostname. Politeness, robots.txt and the breaker all work per site.
 model Site {
-  id               String       @id @default(uuid(7)) @db.Uuid
-  host             String       @unique
+  id               String        @id @default(uuid(7)) @db.Uuid
+  host             String        @unique
   /// The registrable domain: "example.co.uk" for "shop.example.co.uk".
   registrable      String
-  policy           SitePolicy   @default(allowed)
+  policy           SitePolicy    @default(allowed)
   /// The hosted demo only checks sites marked here.
-  demoAllowed      Boolean      @default(false) @map("demo_allowed")
-  robotsTxt        String?      @map("robots_txt")
+  demoAllowed      Boolean       @default(false) @map("demo_allowed")
+  robotsTxt        String?       @map("robots_txt")
   robotsStatus     RobotsStatus? @map("robots_status")
-  robotsFetchedAt  DateTime?    @map("robots_fetched_at") @db.Timestamptz
+  robotsFetchedAt  DateTime?     @map("robots_fetched_at") @db.Timestamptz
   /// Seconds, from robots.txt.
-  crawlDelay       Int?         @map("crawl_delay")
+  crawlDelay       Int?          @map("crawl_delay")
   /// At least this long between two requests to the site.
-  minGapMs         Int          @default(10000) @map("min_gap_ms")
-  maxInFlight      Int          @default(1) @map("max_in_flight")
-  needsBrowser     Boolean      @default(false) @map("needs_browser")
-  breakerState     BreakerState @default(closed) @map("breaker_state")
-  breakerOpenUntil DateTime?    @map("breaker_open_until") @db.Timestamptz
-  createdAt        DateTime     @default(now()) @map("created_at") @db.Timestamptz
-  updatedAt        DateTime     @updatedAt @map("updated_at") @db.Timestamptz
+  minGapMs         Int           @default(10000) @map("min_gap_ms")
+  maxInFlight      Int           @default(1) @map("max_in_flight")
+  needsBrowser     Boolean       @default(false) @map("needs_browser")
+  breakerState     BreakerState  @default(closed) @map("breaker_state")
+  breakerOpenUntil DateTime?     @map("breaker_open_until") @db.Timestamptz
+  createdAt        DateTime      @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt        DateTime      @updatedAt @map("updated_at") @db.Timestamptz
 
   targets Target[]
   recipes Recipe[]
@@ -121,16 +121,16 @@ model Site {
 
 /// A saved way to read a site's price. Healing retires one and writes another.
 model Recipe {
-  id          String       @id @default(uuid(7)) @db.Uuid
-  siteId      String       @map("site_id") @db.Uuid
-  selector    String
-  attribute   String?
-  pattern     String?
-  source      RecipeSource
-  activeFrom  DateTime     @default(now()) @map("active_from") @db.Timestamptz
-  retiredAt   DateTime?    @map("retired_at") @db.Timestamptz
-  hits        Int          @default(0)
-  misses      Int          @default(0)
+  id         String       @id @default(uuid(7)) @db.Uuid
+  siteId     String       @map("site_id") @db.Uuid
+  selector   String
+  attribute  String?
+  pattern    String?
+  source     RecipeSource
+  activeFrom DateTime     @default(now()) @map("active_from") @db.Timestamptz
+  retiredAt  DateTime?    @map("retired_at") @db.Timestamptz
+  hits       Int          @default(0)
+  misses     Int          @default(0)
 
   site Site @relation(fields: [siteId], references: [id], onDelete: Cascade)
 
@@ -176,30 +176,30 @@ model Target {
 
 /// Every check, successful or not. Kept for 30 days, failures for 90.
 model Check {
-  id           String       @id @default(uuid(7)) @db.Uuid
-  targetId     String       @map("target_id") @db.Uuid
+  id            String       @id @default(uuid(7)) @db.Uuid
+  targetId      String       @map("target_id") @db.Uuid
   /// The queue job's id: a check retried after a crash is written once.
-  jobId        String       @unique @map("job_id")
-  reason       CheckReason
-  mode         FetchMode?
-  scheduledFor DateTime     @map("scheduled_for") @db.Timestamptz
-  startedAt    DateTime     @map("started_at") @db.Timestamptz
-  finishedAt   DateTime     @map("finished_at") @db.Timestamptz
-  outcome      CheckOutcome
-  httpStatus   Int?         @map("http_status")
+  jobId         String       @unique @map("job_id")
+  reason        CheckReason
+  mode          FetchMode?
+  scheduledFor  DateTime     @map("scheduled_for") @db.Timestamptz
+  startedAt     DateTime     @map("started_at") @db.Timestamptz
+  finishedAt    DateTime     @map("finished_at") @db.Timestamptz
+  outcome       CheckOutcome
+  httpStatus    Int?         @map("http_status")
   /// Milliseconds per step, for the waterfall.
-  timings      Json?
-  strategy     String?
-  confidence   Float?
-  price        BigInt?
-  wasPrice     BigInt?      @map("was_price")
-  currency     String?      @db.Char(3)
-  inStock      Boolean?     @map("in_stock")
-  detail       String?
+  timings       Json?
+  strategy      String?
+  confidence    Float?
+  price         BigInt?
+  wasPrice      BigInt?      @map("was_price")
+  currency      String?      @db.Char(3)
+  inStock       Boolean?     @map("in_stock")
+  detail        String?
   /// Each strategy's reading, for "show me why".
-  readings     Json?
+  readings      Json?
   /// A failed browser check's screenshot, kept for 7 days.
-  screenshotKey String?   @map("screenshot_key")
+  screenshotKey String?      @map("screenshot_key")
 
   target Target @relation(fields: [targetId], references: [id], onDelete: Cascade)
 
@@ -222,7 +222,8 @@ model PricePoint {
   /// Built by replaying the practice shop's past, not observed live.
   replayed     Boolean  @default(false)
 
-  target Target @relation(fields: [targetId], references: [id], onDelete: Cascade)
+  target Target  @relation(fields: [targetId], references: [id], onDelete: Cascade)
+  alerts Alert[]
 
   @@index([targetId, firstSeenAt(sort: Desc)])
   @@map("price_points")
@@ -248,13 +249,13 @@ model Event {
 // ---- Accounts, managed by Better Auth. Its ids are its own strings. ----
 
 model User {
-  id            String       @id
+  id            String   @id
   name          String
-  email         String       @unique
-  emailVerified Boolean      @default(false) @map("email_verified")
+  email         String   @unique
+  emailVerified Boolean  @default(false) @map("email_verified")
   image         String?
-  createdAt     DateTime     @default(now()) @map("created_at") @db.Timestamptz
-  updatedAt     DateTime     @updatedAt @map("updated_at") @db.Timestamptz
+  createdAt     DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt     DateTime @updatedAt @map("updated_at") @db.Timestamptz
 
   sessions    Session[]
   accounts    Account[]
@@ -330,12 +331,20 @@ model Workspace {
   /// Demo workspaces are deleted after this.
   expiresAt  DateTime? @map("expires_at") @db.Timestamptz
   maxWatches Int       @default(100) @map("max_watches")
+  /// Quiet hours, as minutes after midnight in the workspace's zone. Alerts wait until they end.
+  quietFrom  Int?      @map("quiet_from")
+  quietUntil Int?      @map("quiet_until")
+  /// One email a day, at digestAt, instead of alerts as they happen.
+  digest     Boolean   @default(false)
+  digestAt   Int       @default(480) @map("digest_at")
   createdAt  DateTime  @default(now()) @map("created_at") @db.Timestamptz
   updatedAt  DateTime  @updatedAt @map("updated_at") @db.Timestamptz
 
   memberships Membership[]
   watches     Watch[]
   groups      ProductGroup[]
+  channels    Channel[]
+  alerts      Alert[]
 
   @@map("workspaces")
 }
@@ -370,26 +379,148 @@ model ProductGroup {
 
 /// One workspace's interest in a product page: its own label, target and interval.
 model Watch {
-  id              String    @id @default(uuid(7)) @db.Uuid
-  workspaceId     String    @map("workspace_id") @db.Uuid
-  targetId        String    @map("target_id") @db.Uuid
-  groupId         String?   @map("group_id") @db.Uuid
+  id              String   @id @default(uuid(7)) @db.Uuid
+  workspaceId     String   @map("workspace_id") @db.Uuid
+  targetId        String   @map("target_id") @db.Uuid
+  groupId         String?  @map("group_id") @db.Uuid
   label           String?
   /// Minor units, in the product's currency.
-  targetPrice     BigInt?   @map("target_price")
-  intervalSeconds Int       @default(21600) @map("interval_seconds")
+  targetPrice     BigInt?  @map("target_price")
+  intervalSeconds Int      @default(21600) @map("interval_seconds")
   /// The workspace's own listing, in a group of competitors.
-  isMine          Boolean   @default(false) @map("is_mine")
-  paused          Boolean   @default(false)
-  createdAt       DateTime  @default(now()) @map("created_at") @db.Timestamptz
-  updatedAt       DateTime  @updatedAt @map("updated_at") @db.Timestamptz
+  isMine          Boolean  @default(false) @map("is_mine")
+  paused          Boolean  @default(false)
+  createdAt       DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt       DateTime @updatedAt @map("updated_at") @db.Timestamptz
 
   workspace Workspace     @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
   target    Target        @relation(fields: [targetId], references: [id], onDelete: Cascade)
   group     ProductGroup? @relation(fields: [groupId], references: [id], onDelete: SetNull)
+  rules     AlertRule[]
+  alerts    Alert[]
 
   @@unique([workspaceId, targetId])
   @@index([targetId])
   @@index([groupId])
   @@map("watches")
+}
+
+// ---- Alerts ----
+
+enum AlertRuleKind {
+  below_target
+  drop_percent
+  any_drop
+  back_in_stock
+  lowest_ever
+  undercut
+}
+
+enum ChannelKind {
+  email
+  slack
+  discord
+  webhook
+}
+
+enum ChannelStatus {
+  active
+  broken
+}
+
+enum DeliveryStatus {
+  pending
+  batched
+  sent
+  failed
+  skipped
+}
+
+/// When a watch should alert: one of each kind per watch.
+model AlertRule {
+  id          String        @id @default(uuid(7)) @db.Uuid
+  watchId     String        @map("watch_id") @db.Uuid
+  kind        AlertRuleKind
+  /// "Drops by X%": the X.
+  threshold   Int?
+  /// Ready to fire. "Below target" and "undercut" disarm when they fire, until the reason has gone.
+  armed       Boolean       @default(true)
+  lastFiredAt DateTime?     @map("last_fired_at") @db.Timestamptz
+  createdAt   DateTime      @default(now()) @map("created_at") @db.Timestamptz
+
+  watch Watch @relation(fields: [watchId], references: [id], onDelete: Cascade)
+
+  @@unique([watchId, kind])
+  @@map("alert_rules")
+}
+
+/// Where a workspace's alerts go. Its settings (an address, a secret) are sealed with AES-256-GCM.
+model Channel {
+  id          String        @id @default(uuid(7)) @db.Uuid
+  workspaceId String        @map("workspace_id") @db.Uuid
+  kind        ChannelKind
+  name        String
+  settings    String
+  /// Enough of the address to recognise it: "hooks.slack.com/…/a1b2".
+  hint        String
+  status      ChannelStatus @default(active)
+  /// Failed deliveries in a row: three, and it's marked broken.
+  failures    Int           @default(0)
+  lastError   String?       @map("last_error")
+  lastSentAt  DateTime?     @map("last_sent_at") @db.Timestamptz
+  createdAt   DateTime      @default(now()) @map("created_at") @db.Timestamptz
+
+  workspace  Workspace  @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  deliveries Delivery[]
+
+  @@index([workspaceId])
+  @@map("channels")
+}
+
+/// One per watch per new price point, listing every rule it met: one message for one change.
+model Alert {
+  id            String          @id @default(uuid(7)) @db.Uuid
+  workspaceId   String          @map("workspace_id") @db.Uuid
+  watchId       String          @map("watch_id") @db.Uuid
+  pricePointId  String          @map("price_point_id") @db.Uuid
+  kinds         AlertRuleKind[]
+  price         BigInt?
+  previousPrice BigInt?         @map("previous_price")
+  currency      String?         @db.Char(3)
+  /// Why it fired, in words, fixed at the time.
+  reasons       String[]
+  firedAt       DateTime        @default(now()) @map("fired_at") @db.Timestamptz
+  readAt        DateTime?       @map("read_at") @db.Timestamptz
+
+  workspace  Workspace  @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  watch      Watch      @relation(fields: [watchId], references: [id], onDelete: Cascade)
+  pricePoint PricePoint @relation(fields: [pricePointId], references: [id], onDelete: Cascade)
+  deliveries Delivery[]
+
+  @@unique([watchId, pricePointId])
+  @@index([workspaceId, firedAt(sort: Desc)])
+  @@map("alerts")
+}
+
+/// One per alert per channel, sent and retried on its own.
+model Delivery {
+  id        String         @id @default(uuid(7)) @db.Uuid
+  alertId   String         @map("alert_id") @db.Uuid
+  channelId String         @map("channel_id") @db.Uuid
+  status    DeliveryStatus @default(pending)
+  attempts  Int            @default(0)
+  lastError String?        @map("last_error")
+  /// Held back (quiet hours, the digest, a busy hour) until then, to go in a summary.
+  sendAfter DateTime?      @map("send_after") @db.Timestamptz
+  heldFor   String?        @map("held_for")
+  sentAt    DateTime?      @map("sent_at") @db.Timestamptz
+  createdAt DateTime       @default(now()) @map("created_at") @db.Timestamptz
+
+  alert   Alert   @relation(fields: [alertId], references: [id], onDelete: Cascade)
+  channel Channel @relation(fields: [channelId], references: [id], onDelete: Cascade)
+
+  @@unique([alertId, channelId])
+  @@index([status, sendAfter])
+  @@index([channelId, createdAt])
+  @@map("deliveries")
 }

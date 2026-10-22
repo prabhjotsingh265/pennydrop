@@ -1,11 +1,13 @@
 import type { Db } from '@pennydrop/db';
 import { updateWorkspaceSchema, type Me } from '@pennydrop/domain';
+import type { Mailer } from '@pennydrop/alerts';
 import type { LiveMessage } from '@pennydrop/queue';
 import { fromNodeHeaders } from 'better-auth/node';
 import Fastify, { type FastifyReply, type FastifyRequest } from 'fastify';
 import { ZodError } from 'zod';
 import { systemLookup, type Lookup } from './addresses.ts';
 import type { Auth } from './auth.ts';
+import { alertRoutes } from './alerts.ts';
 import type { Config } from './config.ts';
 import type { LiveHub } from './live.ts';
 import { groupRoutes } from './groups.ts';
@@ -35,6 +37,8 @@ export interface AppDeps {
   /** Asks the dispatcher to run now, so a new or "check now" product isn't left for the next tick. */
   wake: () => Promise<void>;
   previews: Previews;
+  /** Sends email: confirmations, resets, and channel tests. */
+  mail: Mailer;
   /** Open dashboards on this process, and how to tell every process about a change. */
   live: LiveHub;
   publish: (message: LiveMessage) => Promise<void>;
@@ -109,6 +113,10 @@ export function buildApp(deps: AppDeps) {
           name: workspace.name,
           timezone: workspace.timezone,
           role: member.role,
+          quietFrom: workspace.quietFrom,
+          quietUntil: workspace.quietUntil,
+          digest: workspace.digest,
+          digestAt: workspace.digestAt,
         },
       };
     };
@@ -136,6 +144,7 @@ export function buildApp(deps: AppDeps) {
     await previewRoutes(dashboard, { ...vet, previews: deps.previews });
     await reportRoutes(dashboard, { db, screenshotDir: config.screenshotDir });
     await groupRoutes(dashboard, { db });
+    await alertRoutes(dashboard, { db, config, mail: deps.mail });
 
     // Live updates for the dashboard, as Server-Sent Events.
     dashboard.get('/api/events', async (request, reply) => {

@@ -10,5 +10,8 @@ describe('configFromEnv', () => {
 
   it('won’t start in production without a secret', () => {
     expect(() => configFromEnv({ NODE_ENV: 'production' })).toThrow(/AUTH_SECRET/);
+    expect(() => configFromEnv({ NODE_ENV: 'production', AUTH_SECRET: 'x' })).toThrow(
+      /CHANNELS_KEY/,
+    );
   });
 });

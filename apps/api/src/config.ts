@@ -7,6 +7,10 @@ export interface Config {
   localShops: boolean;
   /** Where the browser fetcher leaves screenshots of failed checks. */
   screenshotDir?: string;
+  /** Development: the container that answers for *.localhost (the practice shop and its catcher). */
+  localShopHost?: string;
+  /** Seals channel settings (webhook addresses, signing secrets). Must be set in production. */
+  channelsKey: string;
 }
 
 export function configFromEnv(env: NodeJS.ProcessEnv = process.env): Config {
@@ -15,6 +19,10 @@ export function configFromEnv(env: NodeJS.ProcessEnv = process.env): Config {
   const authSecret =
     env.AUTH_SECRET || (production ? undefined : 'development-only-secret-not-for-production');
   if (!authSecret) throw new Error('AUTH_SECRET must be set in production.');
+  const channelsKey =
+    env.CHANNELS_KEY ||
+    (production ? undefined : 'development-only-channels-key-not-for-production');
+  if (!channelsKey) throw new Error('CHANNELS_KEY must be set in production.');
   return {
     appUrl: env.APP_URL || 'http://localhost:3000',
     authSecret,
@@ -25,5 +33,7 @@ export function configFromEnv(env: NodeJS.ProcessEnv = process.env): Config {
     },
     localShops: Boolean(env.LOCAL_SHOP_HOST),
     screenshotDir: env.SCREENSHOT_DIR || undefined,
+    localShopHost: env.LOCAL_SHOP_HOST || undefined,
+    channelsKey,
   };
 }

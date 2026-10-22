@@ -1,4 +1,5 @@
-import { guardedLookup, type GuardOptions } from '@pennydrop/fetch';
+import { isIP } from 'node:net';
+import { guardedLookup, isPublicAddress, type GuardOptions } from '@pennydrop/fetch';
 import { Agent, request } from 'undici';
 import type { ChannelSettings } from './channels.ts';
 import { sign } from './crypto.ts';
@@ -28,11 +29,18 @@ function codeIn(error: unknown, code: string): boolean {
   return false;
 }
 
-/** Only http(s) on the usual ports, unless the host is trusted (the practice shop, locally). */
+/**
+ * Only http(s) on the usual ports, unless the host is trusted (the practice
+ * shop, locally). An address written as an IP is checked here: Node connects
+ * to one without a DNS lookup, so the guarded lookup would never see it.
+ */
 function allowed(url: URL, guard: GuardOptions): string | null {
   if (url.protocol !== 'https:' && url.protocol !== 'http:')
     return 'Only web addresses can be sent to.';
   const trusted = guard.allowPrivate?.(url.hostname) ?? false;
+  const host = url.hostname.replace(/^\[|\]$/g, '');
+  if (!trusted && isIP(host) && !isPublicAddress(host))
+    return 'That address is inside a private network.';
   if (!trusted && url.port !== '' && url.port !== '443' && url.port !== '80') {
     return `Port ${url.port} isn’t allowed.`;
   }

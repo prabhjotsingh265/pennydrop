@@ -181,3 +181,35 @@ describe('the practice shop', () => {
     expect(art.body).toContain('<svg');
   });
 });
+
+describe('the message catcher', () => {
+  it('keeps what’s posted to it, newest first, and fails on request', async () => {
+    const get = await start();
+    expect(
+      (
+        await get('/_hooks/slack', {
+          method: 'POST',
+          body: { text: 'first' },
+          headers: { 'pennydrop-delivery': 'd1' },
+        })
+      ).status,
+    ).toBe(200);
+    await get('/_hooks/slack', { method: 'POST', body: { text: 'second' } });
+    expect(
+      (await get('/_hooks/discord?status=503', { method: 'POST', body: { embeds: [] } })).status,
+    ).toBe(503);
+
+    expect(JSON.parse((await get('/_hooks')).body)).toEqual({ slack: 2, discord: 1 });
+    const slack = JSON.parse((await get('/_hooks/slack')).body);
+    expect(slack.map((m: { body: { text: string } }) => m.body.text)).toEqual(['second', 'first']);
+    expect(slack[1].headers['pennydrop-delivery']).toBe('d1');
+  });
+
+  it('is hidden behind the chaos token, once one is set', async () => {
+    const get = await start({ chaosToken: 'open-sesame' });
+    expect((await get('/_hooks')).status).toBe(404);
+    expect((await get('/_hooks', { headers: { 'x-hooks-token': 'open-sesame' } })).status).toBe(
+      200,
+    );
+  });
+});

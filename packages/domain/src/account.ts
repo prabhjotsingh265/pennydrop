@@ -21,5 +21,15 @@ export type SignInInput = z.infer<typeof signInSchema>;
 /** Who's signed in, and the workspace they're working in. */
 export interface Me {
   user: { id: string; name: string; email: string };
-  workspace: { id: string; name: string; timezone: string; role: 'owner' | 'member' };
+  workspace: {
+    id: string;
+    name: string;
+    timezone: string;
+    role: 'owner' | 'member';
+    /** Quiet hours and the digest, as minutes after midnight in the workspace's zone. */
+    quietFrom: number | null;
+    quietUntil: number | null;
+    digest: boolean;
+    digestAt: number;
+  };
 }

@@ -18,7 +18,8 @@ import { queuePreviews } from './previews.ts';
 
 const config = configFromEnv();
 const db = createDb();
-const auth = createAuth({ db, mail: createMailer(config.mail), config });
+const mail = createMailer(config.mail);
+const auth = createAuth({ db, mail, config });
 const connection = redisConnection();
 const ticks = new Queue(QUEUES.dispatch, { connection });
 // However many people press "check now" at once, at most one extra dispatch waits behind the running one.
@@ -51,7 +52,7 @@ const publish = (message: LiveMessage) =>
     console.error('live update not sent:', error),
   );
 
-const app = buildApp({ db, auth, config, wake, previews, live, publish });
+const app = buildApp({ db, auth, config, wake, previews, live, publish, mail });
 const port = Number(process.env.API_PORT ?? 3001);
 
 // Finish in-flight requests before exiting when Docker stops the container.

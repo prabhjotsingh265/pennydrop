@@ -4,6 +4,7 @@ import { ZodError } from 'zod';
 import { productArt } from './art.ts';
 import { CATEGORIES, PRODUCTS, findProduct, type Product } from './catalogue.ts';
 import { chaosRoutes } from './chaos.ts';
+import { hooksRoutes } from './hooks.ts';
 import {
   blockedPage,
   listingPage,
@@ -60,6 +61,7 @@ export function buildShop(options: ShopOptions = {}) {
           'Disallow: /clearance/',
           'Disallow: /basket',
           'Disallow: /_chaos',
+          'Disallow: /_hooks',
           '',
         ].join('\n'),
       );
@@ -76,6 +78,7 @@ export function buildShop(options: ShopOptions = {}) {
   });
 
   app.use('/_chaos', chaosRoutes(store, options.chaosToken));
+  app.use('/_hooks', hooksRoutes(options.chaosToken));
 
   // Every shop page from here on waits, and may fail, as the shop's settings say.
   app.use(async (req, res, next) => {
