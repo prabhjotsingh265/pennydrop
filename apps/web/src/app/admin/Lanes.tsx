@@ -108,10 +108,9 @@ export function Lanes({ time }: { time: (t: number) => string }) {
     };
   }, []);
 
-  // Every site with a breaker worth showing, and any other a check just came from.
-  const hosts = [...new Set([...sites.map((site) => site.host), ...dots.map((dot) => dot.host)])];
-  const siteOf = (host: string) =>
-    sites.find((site) => site.host === host) ?? { host, breaker: 'closed', openUntil: null };
+  // The busiest sites, as the API picks them: a quieter site's checks have no lane.
+  const hosts = sites.map((site) => site.host);
+  const siteOf = (host: string) => sites.find((site) => site.host === host)!;
 
   return (
     <section aria-labelledby="lanes" className="space-y-4">

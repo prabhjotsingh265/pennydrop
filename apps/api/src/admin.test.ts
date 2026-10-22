@@ -3,7 +3,7 @@ import { QUEUES, redisConnection } from '@pennydrop/queue';
 import { Queue, Worker } from 'bullmq';
 import { afterAll, beforeEach, describe, expect, it } from 'vitest';
 import { APP_URL, harness } from '../test/harness.ts';
-import { briefly } from './admin.ts';
+import { LANES, briefly } from './admin.ts';
 
 const connection = redisConnection();
 const prefix = `test-${randomUUID()}`;
@@ -94,6 +94,19 @@ describe('the System page', () => {
       { host: 'brittle.localhost', read: 0, notRead: 1 },
     ]);
     await worker.close();
+  });
+
+  it('gives lanes to the busiest sites only, in name order', async () => {
+    for (let i = 0; i < 10; i++) await checks([1], 'ok', `quiet-${i}.localhost`);
+    await checks([1, 1, 1], 'ok', 'zebra.localhost');
+    await checks([1, 1], 'timeout', 'brittle.localhost');
+    const admin = as(await h.signIn('admin@example.com'));
+    const { sites } = (await admin('GET', '/api/admin/lanes')).json();
+    expect(sites).toHaveLength(LANES);
+    const hosts = sites.map((site: { host: string }) => site.host);
+    expect(hosts).toContain('zebra.localhost');
+    expect(hosts).toContain('brittle.localhost');
+    expect(hosts).toEqual([...hosts].sort());
   });
 
   it('gives the lanes every check since the last look', async () => {

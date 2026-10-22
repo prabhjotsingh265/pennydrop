@@ -6,6 +6,8 @@ import { z } from 'zod';
 import type { Config } from './config.ts';
 
 const MINUTE = 60_000;
+/** Lanes on the System page: the busiest sites, however many there are. */
+export const LANES = 8;
 const HOUR = 60 * MINUTE;
 /** Outcomes that read the page: everything else is "not read" (failed, refused, skipped). */
 const READ = ['ok', 'unchanged', 'suspicious'];
@@ -160,17 +162,21 @@ export async function adminRoutes(dashboard: FastifyInstance, deps: AdminDeps) {
         target: { select: { site: { select: { host: true } } } },
       },
     });
-    const breakers = await db.site.findMany({
-      where: {
-        OR: [
-          { breakerState: { not: 'closed' } },
-          { targets: { some: { lastCheckedAt: { gt: new Date(now - 10 * MINUTE) } } } },
-        ],
-      },
-      select: { host: true, breakerState: true, breakerOpenUntil: true },
-      orderBy: { host: 'asc' },
-      take: 12,
-    });
+    // The busiest sites of the last ten minutes (a skipped check counts: its breaker is the
+    // story), named in order so the lanes don't jump about as the counts change.
+    const busiest = await db.$queryRaw<{ host: string; breaker: string; openUntil: Date | null }[]>`
+      SELECT host, breaker, "openUntil" FROM (
+        SELECT s.host, s.breaker_state::text AS breaker, s.breaker_open_until AS "openUntil",
+               count(c.id) AS checks
+        FROM sites s
+        JOIN targets t ON t.site_id = s.id
+        JOIN checks c ON c.target_id = t.id
+        WHERE c.finished_at > ${new Date(now - 10 * MINUTE)} AND c.reason <> 'replay'
+        GROUP BY s.id
+        ORDER BY checks DESC, s.host
+        LIMIT ${LANES}
+      ) AS lanes
+      ORDER BY host`;
     const view: LanesView = {
       at: now,
       checks: checks.map((check) => ({
@@ -182,10 +188,10 @@ export async function adminRoutes(dashboard: FastifyInstance, deps: AdminDeps) {
         ms: check.finishedAt.getTime() - check.startedAt.getTime(),
         at: check.finishedAt.getTime(),
       })),
-      sites: breakers.map((site) => ({
+      sites: busiest.map((site) => ({
         host: site.host,
-        breaker: site.breakerState,
-        openUntil: site.breakerOpenUntil?.toISOString() ?? null,
+        breaker: site.breaker,
+        openUntil: site.openUntil?.toISOString() ?? null,
       })),
     };
     return view;
