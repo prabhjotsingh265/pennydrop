@@ -62,3 +62,4 @@ export {
   type SandboxState,
   type ShowcaseItem,
 } from './demo.ts';
+export type { LanesView, SystemView } from './system.ts';

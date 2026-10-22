@@ -26,6 +26,8 @@ export interface Config {
    * demo is closed.
    */
   demo: { practiceShopUrl: string; shopInternalUrl: string; chaosToken?: string } | null;
+  /** Who sees the System page: email addresses, lower-cased. */
+  adminEmails: string[];
 }
 
 /** Locally, the shop container answers for every practice shop; in production, both are set. */
@@ -66,5 +68,9 @@ export function configFromEnv(env: NodeJS.ProcessEnv = process.env): Config {
     channelsKey,
     trustProxy: trustProxyFrom(env.TRUST_PROXY),
     demo: demoFrom(env),
+    adminEmails: (env.ADMIN_EMAILS ?? '')
+      .split(',')
+      .map((email) => email.trim().toLowerCase())
+      .filter(Boolean),
   };
 }

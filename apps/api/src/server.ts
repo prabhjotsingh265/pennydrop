@@ -57,7 +57,24 @@ const publish = (message: LiveMessage) =>
 const limiter = redisLimiter(connection);
 const shop = config.demo ? shopControls(config.demo.shopInternalUrl, config.demo.chaosToken) : null;
 
-const app = buildApp({ db, auth, config, wake, previews, live, publish, mail, limiter, shop });
+// Read-only handles on every queue, for the System page's counts.
+const queues = Object.fromEntries(
+  Object.values(QUEUES).map((name) => [name, new Queue(name, { connection })]),
+);
+
+const app = buildApp({
+  db,
+  auth,
+  config,
+  wake,
+  previews,
+  live,
+  publish,
+  mail,
+  limiter,
+  shop,
+  queues,
+});
 const port = Number(process.env.API_PORT ?? 3001);
 
 // Finish in-flight requests before exiting when Docker stops the container.
@@ -67,7 +84,13 @@ for (const signal of ['SIGINT', 'SIGTERM'] as const) {
       .close()
       .then(() => {
         clearInterval(heartbeat);
-        return Promise.all([ticks.close(), previews.close(), subscriber.quit(), db.$disconnect()]);
+        return Promise.all([
+          ticks.close(),
+          previews.close(),
+          ...Object.values(queues).map((queue) => queue.close()),
+          subscriber.quit(),
+          db.$disconnect(),
+        ]);
       })
       .then(() => connection.quit())
       .then(() => process.exit(0));

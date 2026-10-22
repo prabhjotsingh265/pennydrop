@@ -105,7 +105,8 @@ function LiveMark() {
 
 export function Shell() {
   useLiveUpdates();
-  const isDemo = useMe().data?.workspace.isDemo ?? false;
+  const me = useMe().data;
+  const isDemo = me?.workspace.isDemo ?? false;
   return (
     <div className="min-h-dvh">
       <header className="sticky top-0 z-20 border-b border-line bg-paper/85 backdrop-blur">
@@ -137,6 +138,11 @@ export function Shell() {
             <NavLink to="/app/checks" className={navClass}>
               Checks
             </NavLink>
+            {me?.user.isAdmin && (
+              <NavLink to="/admin" className={navClass}>
+                System
+              </NavLink>
+            )}
           </nav>
           <div className="ml-auto flex items-center gap-1 sm:gap-2">
             <LiveMark />

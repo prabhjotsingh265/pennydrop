@@ -6,6 +6,7 @@ import { vi } from 'vitest';
 import type { Lookup } from '../src/addresses.ts';
 import { buildApp } from '../src/app.ts';
 import { unlimited, type Limiter } from '../src/limits.ts';
+import type { Queue } from 'bullmq';
 import { createAuth } from '../src/auth.ts';
 import { LiveHub } from '../src/live.ts';
 import type { Config } from '../src/config.ts';
@@ -16,7 +17,10 @@ import { FakeShop } from './fake-shop.ts';
 export const APP_URL = 'http://localhost:3000';
 
 /** The API wired to its test database, with emails kept in memory instead of sent. */
-export function harness({ limiter = unlimited }: { limiter?: Limiter } = {}) {
+export function harness({
+  limiter = unlimited,
+  queues,
+}: { limiter?: Limiter; queues?: Record<string, Queue> } = {}) {
   const db = testDb('api');
   const sent: Email[] = [];
   const config: Config = {
@@ -31,6 +35,7 @@ export function harness({ limiter = unlimited }: { limiter?: Limiter } = {}) {
       practiceShopUrl: 'http://{shop}.localhost:4000',
       shopInternalUrl: 'http://shop.test:4000',
     },
+    adminEmails: ['admin@example.com'],
   };
   const wake = vi.fn(async () => {});
   // No real DNS in tests: names resolve to a public documentation address unless told otherwise.
@@ -58,6 +63,7 @@ export function harness({ limiter = unlimited }: { limiter?: Limiter } = {}) {
     mail,
     limiter,
     shop,
+    queues,
     lookup,
     logger: false,
   });

@@ -23,6 +23,13 @@ describe('configFromEnv', () => {
     ).toMatchObject({ practiceShopUrl: 'https://{shop}.example.com', chaosToken: 't' });
   });
 
+  it('lists the admins by email, however they’re written', () => {
+    expect(configFromEnv({}).adminEmails).toEqual([]);
+    expect(
+      configFromEnv({ ADMIN_EMAILS: ' Me@Example.com, ops@example.com ,' }).adminEmails,
+    ).toEqual(['me@example.com', 'ops@example.com']);
+  });
+
   it('believes a proxy about addresses only when told to', () => {
     expect(configFromEnv({}).trustProxy).toBe(false);
     expect(trustProxyFrom('true')).toBe(true);

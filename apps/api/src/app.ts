@@ -2,11 +2,13 @@ import type { Db } from '@pennydrop/db';
 import { updateWorkspaceSchema, type Me } from '@pennydrop/domain';
 import type { Mailer } from '@pennydrop/alerts';
 import type { LiveMessage } from '@pennydrop/queue';
+import type { Queue } from 'bullmq';
 import { fromNodeHeaders } from 'better-auth/node';
 import Fastify, { type FastifyReply, type FastifyRequest } from 'fastify';
 import { ZodError } from 'zod';
 import { systemLookup, type Lookup } from './addresses.ts';
 import type { Auth } from './auth.ts';
+import { adminRoutes, isAdmin } from './admin.ts';
 import { alertRoutes } from './alerts.ts';
 import { demoRoutes, demoStartRoute } from './demo.ts';
 import type { Config } from './config.ts';
@@ -49,6 +51,8 @@ export interface AppDeps {
   limiter: Limiter;
   /** The practice shop's chaos controls, for demo sandboxes. Without them, the demo is closed. */
   shop?: ShopControls | null;
+  /** Every queue by name, for the System page to count. */
+  queues?: Record<string, Queue>;
   lookup?: Lookup;
   now?: () => number;
   logger?: boolean;
@@ -142,7 +146,12 @@ export function buildApp(deps: AppDeps) {
     const me = async (member: Member): Promise<Me> => {
       const workspace = await db.workspace.findUniqueOrThrow({ where: { id: member.workspaceId } });
       return {
-        user: { id: member.userId, name: member.name, email: member.email },
+        user: {
+          id: member.userId,
+          name: member.name,
+          email: member.email,
+          isAdmin: isAdmin(config, member.email),
+        },
         workspace: {
           id: workspace.id,
           name: workspace.name,
@@ -183,6 +192,12 @@ export function buildApp(deps: AppDeps) {
     await groupRoutes(dashboard, { db });
     await alertRoutes(dashboard, { db, config, mail: deps.mail });
     await demoRoutes(dashboard, demo);
+    await adminRoutes(dashboard, {
+      db,
+      config,
+      queues: deps.queues ?? {},
+      now: deps.now ?? Date.now,
+    });
 
     // Live updates for the dashboard, as Server-Sent Events.
     dashboard.get('/api/events', async (request, reply) => {

@@ -254,3 +254,72 @@
     transform: translateX(300%);
   }
 }
+
+/* The System page's lanes. A check that read the page runs the whole lane; one that
+   didn't stops at the stage it got to (--stop) and drops below the lane, to stay a while. */
+.lane-run {
+  animation: lane-run 1.6s cubic-bezier(0.45, 0, 0.55, 1) var(--delay, 0ms) both;
+}
+
+@keyframes lane-run {
+  0% {
+    opacity: 0;
+    transform: translateX(0);
+  }
+  10%,
+  85% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+    transform: translateX(100%);
+  }
+}
+
+.lane-stop {
+  animation:
+    lane-stop 0.7s cubic-bezier(0.2, 0.8, 0.2, 1) var(--delay, 0ms) both,
+    lane-fade 1.2s calc(var(--delay, 0ms) + 6s) forwards;
+}
+
+.lane-stop > .lane-dot {
+  animation: lane-park 0.45s cubic-bezier(0.3, 1.5, 0.5, 1) calc(var(--delay, 0ms) + 0.7s) both;
+}
+
+@keyframes lane-stop {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(var(--stop, 0%));
+  }
+}
+
+@keyframes lane-park {
+  to {
+    transform: translateY(14px);
+  }
+}
+
+@keyframes lane-fade {
+  to {
+    opacity: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .lane-run {
+    animation: none;
+    transform: translateX(100%);
+  }
+  .lane-stop,
+  .lane-stop > .lane-dot {
+    animation: none;
+  }
+  .lane-stop {
+    transform: translateX(var(--stop, 0%));
+  }
+  .lane-stop > .lane-dot {
+    transform: translateY(14px);
+  }
+}

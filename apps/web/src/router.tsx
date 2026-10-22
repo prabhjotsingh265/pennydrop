@@ -1,5 +1,6 @@
 import { createBrowserRouter, Navigate } from 'react-router';
 import { AddPage } from './app/add/AddPage.tsx';
+import { SystemPage } from './app/admin/SystemPage.tsx';
 import { AlertsPage } from './app/AlertsPage.tsx';
 import { ChannelsPage } from './app/ChannelsPage.tsx';
 import { ChecksPage } from './app/ChecksPage.tsx';
@@ -54,6 +55,16 @@ export const router = createBrowserRouter([
     ],
   },
   // The phase-0 design prototype grew into the landing page.
+  // The platform's own page, for its admins, in the dashboard's frame.
+  {
+    path: '/admin',
+    element: (
+      <RequireAuth>
+        <Shell />
+      </RequireAuth>
+    ),
+    children: [{ index: true, element: <SystemPage /> }],
+  },
   { path: '/prototype', element: <Navigate to="/" replace /> },
   { path: '*', element: <Navigate to="/app" replace /> },
 ]);

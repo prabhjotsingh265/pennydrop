@@ -20,7 +20,8 @@ export type SignInInput = z.infer<typeof signInSchema>;
 
 /** Who's signed in, and the workspace they're working in. */
 export interface Me {
-  user: { id: string; name: string; email: string };
+  /** `isAdmin`: sees the System page. */
+  user: { id: string; name: string; email: string; isAdmin: boolean };
   workspace: {
     id: string;
     name: string;
