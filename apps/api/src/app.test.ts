@@ -18,6 +18,22 @@ describe('GET /api/health', () => {
   });
 });
 
+describe('every answer', () => {
+  it('carries the security headers, and isn’t cached unless a route says so', async () => {
+    const response = await h.app.inject({ method: 'GET', url: '/api/health' });
+    expect(response.headers).toMatchObject({
+      'x-content-type-options': 'nosniff',
+      'x-frame-options': 'DENY',
+      'referrer-policy': 'strict-origin-when-cross-origin',
+      'cross-origin-resource-policy': 'same-origin',
+      'cache-control': 'no-store',
+    });
+    // Better Auth's answers too.
+    const auth = await h.app.inject({ method: 'GET', url: '/api/auth/get-session' });
+    expect(auth.headers['x-frame-options']).toBe('DENY');
+  });
+});
+
 describe('accounts', () => {
   it('asks a new account to confirm its email before it can sign in', async () => {
     const signUp = await h.app.inject({

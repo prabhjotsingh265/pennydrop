@@ -68,6 +68,16 @@ export function buildApp(deps: AppDeps) {
   });
   const appOrigin = new URL(config.appUrl).origin;
 
+  // Every answer: no guessing its type, no framing it, no addresses leaked as referrers, and
+  // no shared cache keeping someone's data, unless a route says otherwise.
+  app.addHook('onSend', async (_request, reply) => {
+    reply.header('x-content-type-options', 'nosniff');
+    reply.header('x-frame-options', 'DENY');
+    reply.header('referrer-policy', 'strict-origin-when-cross-origin');
+    reply.header('cross-origin-resource-policy', 'same-origin');
+    if (!reply.hasHeader('cache-control')) reply.header('cache-control', 'no-store');
+  });
+
   app.get('/api/health', async () => ({ status: 'ok' }));
 
   // Signing in and up are counted per address, before anything else happens.

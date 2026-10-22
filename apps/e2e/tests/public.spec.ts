@@ -13,6 +13,7 @@ test('the public pages pass an accessibility check', async ({ page }) => {
     ['/signin', 'Sign in'],
     ['/signup', 'Create your account'],
     ['/forgot', 'Forgotten your password?'],
+    ['/no-such-page', 'Nothing at this address.'],
   ] as const) {
     await page.goto(path);
     await expect(page.getByRole('heading', { name: heading, level: 1 })).toBeVisible();

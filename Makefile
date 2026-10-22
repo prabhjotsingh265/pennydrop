@@ -56,8 +56,8 @@ migrate: ## Apply database migrations
 seed: ## Add the practice shops and their products, to watch the pipeline work
 	$(TOOLS) pnpm --filter @pennydrop/worker seed
 
-demo: ## Build the demo's showcase: its products, always checked, with replayed history (days=60)
-	$(TOOLS) pnpm --filter @pennydrop/worker demo --days $(or $(days),60)
+demo: ## Build the demo's showcase: its products, always checked, with replayed history (days=60, wait=1)
+	$(TOOLS) pnpm --filter @pennydrop/worker demo --days $(or $(days),60) $(if $(wait),--wait)
 
 replay: ## Replay the history of watched practice-shop products (days=60 to choose how far back)
 	$(TOOLS) pnpm --filter @pennydrop/worker replay --days $(or $(days),60)

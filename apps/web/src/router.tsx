@@ -19,52 +19,60 @@ import { Reset } from './auth/Reset.tsx';
 import { SignIn } from './auth/SignIn.tsx';
 import { SignUp } from './auth/SignUp.tsx';
 import { BotPage } from './landing/BotPage.tsx';
+import { ErrorPage } from './landing/ErrorPage.tsx';
 import { Landing } from './landing/Landing.tsx';
+import { NotFoundPage } from './landing/NotFoundPage.tsx';
 import { PrivacyPage } from './landing/PrivacyPage.tsx';
 import { TermsPage } from './landing/TermsPage.tsx';
 
 export const router = createBrowserRouter([
-  { path: '/', element: <Landing /> },
-  { path: '/bot', element: <BotPage /> },
-  { path: '/privacy', element: <PrivacyPage /> },
-  { path: '/terms', element: <TermsPage /> },
-  { path: '/signin', element: <SignIn /> },
-  { path: '/signup', element: <SignUp /> },
-  { path: '/signup/sent', element: <CheckEmail /> },
-  { path: '/demo', element: <DemoPage /> },
-  { path: '/forgot', element: <Forgot /> },
-  { path: '/reset', element: <Reset /> },
+  // Whatever any page throws ends on the error page, not a blank screen.
   {
-    path: '/app',
-    element: (
-      <RequireAuth>
-        <Shell />
-      </RequireAuth>
-    ),
+    errorElement: <ErrorPage />,
     children: [
-      { index: true, element: <WatchlistPage /> },
-      { path: 'add', element: <AddPage /> },
-      { path: 'p/:id', element: <ProductPage /> },
-      { path: 'sites', element: <SitesPage /> },
-      { path: 'checks', element: <ChecksPage /> },
-      { path: 'groups', element: <GroupsPage /> },
-      { path: 'groups/:id', element: <ComparePage /> },
-      { path: 'alerts', element: <AlertsPage /> },
-      { path: 'channels', element: <ChannelsPage /> },
-      { path: 'settings', element: <SettingsPage /> },
+      { path: '/', element: <Landing /> },
+      { path: '/bot', element: <BotPage /> },
+      { path: '/privacy', element: <PrivacyPage /> },
+      { path: '/terms', element: <TermsPage /> },
+      { path: '/signin', element: <SignIn /> },
+      { path: '/signup', element: <SignUp /> },
+      { path: '/signup/sent', element: <CheckEmail /> },
+      { path: '/demo', element: <DemoPage /> },
+      { path: '/forgot', element: <Forgot /> },
+      { path: '/reset', element: <Reset /> },
+      {
+        path: '/app',
+        element: (
+          <RequireAuth>
+            <Shell />
+          </RequireAuth>
+        ),
+        children: [
+          { index: true, element: <WatchlistPage /> },
+          { path: 'add', element: <AddPage /> },
+          { path: 'p/:id', element: <ProductPage /> },
+          { path: 'sites', element: <SitesPage /> },
+          { path: 'checks', element: <ChecksPage /> },
+          { path: 'groups', element: <GroupsPage /> },
+          { path: 'groups/:id', element: <ComparePage /> },
+          { path: 'alerts', element: <AlertsPage /> },
+          { path: 'channels', element: <ChannelsPage /> },
+          { path: 'settings', element: <SettingsPage /> },
+        ],
+      },
+      // The phase-0 design prototype grew into the landing page.
+      // The platform's own page, for its admins, in the dashboard's frame.
+      {
+        path: '/admin',
+        element: (
+          <RequireAuth>
+            <Shell />
+          </RequireAuth>
+        ),
+        children: [{ index: true, element: <SystemPage /> }],
+      },
+      { path: '/prototype', element: <Navigate to="/" replace /> },
+      { path: '*', element: <NotFoundPage /> },
     ],
   },
-  // The phase-0 design prototype grew into the landing page.
-  // The platform's own page, for its admins, in the dashboard's frame.
-  {
-    path: '/admin',
-    element: (
-      <RequireAuth>
-        <Shell />
-      </RequireAuth>
-    ),
-    children: [{ index: true, element: <SystemPage /> }],
-  },
-  { path: '/prototype', element: <Navigate to="/" replace /> },
-  { path: '*', element: <Navigate to="/app" replace /> },
 ]);
