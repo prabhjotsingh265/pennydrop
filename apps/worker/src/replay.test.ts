@@ -130,6 +130,12 @@ describe('startReplay', () => {
     ).toBe(NOW + REPLAY_HOLD_MS);
   });
 
+  it('starts no second replay while one is under way', async () => {
+    expect(await startReplay(deps, targetId, { days: 1 })).toBe(4);
+    expect(await startReplay(deps, targetId, { days: 1 })).toBeNull();
+    expect(await queued()).toHaveLength(1);
+  });
+
   it('fills in before the first real reading of a product already being checked', async () => {
     const check = await db.check.create({
       data: {

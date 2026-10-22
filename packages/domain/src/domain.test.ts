@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { demoTarget, practiceUrl } from './demo.ts';
 import {
   addWatchSchema,
   minorUnitsFrom,
@@ -57,5 +58,21 @@ describe('the workspace schema', () => {
     expect(ok({ quietFrom: 22 * 60, quietUntil: null })).toBe(false);
     expect(ok({ quietFrom: 600, quietUntil: 600 })).toBe(false);
     expect(ok({ quietFrom: 1_440, quietUntil: 0 })).toBe(false);
+  });
+});
+
+describe('the demo', () => {
+  it('builds practice-shop addresses, sandboxes included', () => {
+    expect(practiceUrl('http://{shop}.localhost:4000', 'fickle', '/p/mug')).toBe(
+      'http://fickle.localhost:4000/p/mug',
+    );
+    expect(practiceUrl('https://{shop}.example.com', 'sandbox-ab12cd34', '/p/mug')).toBe(
+      'https://sandbox-ab12cd34.example.com/p/mug',
+    );
+  });
+
+  it('starts with a target a little under today’s price', () => {
+    expect(demoTarget(2399)).toBe(2150);
+    expect(demoTarget(40)).toBe(50);
   });
 });

@@ -42,3 +42,25 @@ export async function syncTarget(db: Client, targetId: string): Promise<void> {
     },
   });
 }
+
+/** Practice shops are checked every 15 minutes, so a demo has something to watch. */
+export const PRACTICE_INTERVAL_S = 900;
+
+/**
+ * A practice-shop page as a product to check: its site (made polite but quick,
+ * a request a second) and its page, made if they're new. The address must
+ * already be in its clean form, as `practiceUrl` writes it.
+ */
+export async function practiceTarget(db: Client, url: string) {
+  const host = new URL(url).hostname;
+  const site = await db.site.upsert({
+    where: { host },
+    update: {},
+    create: { host, registrable: host, demoAllowed: true, minGapMs: 1_000, maxInFlight: 2 },
+  });
+  return db.target.upsert({
+    where: { canonicalUrl: url },
+    update: {},
+    create: { siteId: site.id, url, canonicalUrl: url, intervalSeconds: PRACTICE_INTERVAL_S },
+  });
+}

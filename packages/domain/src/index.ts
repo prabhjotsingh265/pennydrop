@@ -48,3 +48,17 @@ export {
   type RuleKind,
   type RuleSummary,
 } from './alerts.ts';
+export {
+  BREAK_ACTIONS,
+  DEMO_HOURS,
+  LOCAL_PRACTICE_SHOP_URL,
+  SANDBOX_PRODUCT,
+  SHOWCASE,
+  breakSchema,
+  demoTarget,
+  practiceUrl,
+  type BreakAction,
+  type DemoState,
+  type SandboxState,
+  type ShowcaseItem,
+} from './demo.ts';

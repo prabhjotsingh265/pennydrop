@@ -53,6 +53,13 @@ describe('compose', () => {
     expect(compose(alert).webhook).toMatchObject({ verified: false });
   });
 
+  it('says when it comes from a demo', () => {
+    const message = compose({ ...alert, demo: true });
+    expect(message.subject).toMatch(/^\[Demo\] Copper kettle: £48\.00/);
+    expect(message.text).toContain('This came from a Pennydrop demo');
+    expect(compose(alert).subject).not.toContain('[Demo]');
+  });
+
   it('keeps the capitals of a quoted name', () => {
     const message = compose({ ...alert, reasons: ['“Team Slack” is set up'] });
     expect(message.subject).toBe('Copper kettle: £48.00 (“Team Slack” is set up)');

@@ -254,6 +254,8 @@ model User {
   email         String   @unique
   emailVerified Boolean  @default(false) @map("email_verified")
   image         String?
+  /// A demo visitor: signed in with one click, deleted with the demo.
+  isAnonymous   Boolean  @default(false) @map("is_anonymous")
   createdAt     DateTime @default(now()) @map("created_at") @db.Timestamptz
   updatedAt     DateTime @updatedAt @map("updated_at") @db.Timestamptz
 

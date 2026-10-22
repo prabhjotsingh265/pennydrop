@@ -35,14 +35,20 @@ async function queueStep(http: Queue<FetchJob>, job: FetchJob) {
  * carries on after the last moment already replayed, or reaches further back
  * when asked for more days. Each reading is a real
  * fetch of the practice shop's page as it was, through the real extraction.
- * Returns how many readings are queued to come, or 0 when there's nothing to do.
+ * Returns how many readings are queued to come: 0 when there's nothing to do,
+ * null when a replay of the product is already under way.
  */
 export async function startReplay(
   deps: ReplayDeps,
   targetId: string,
   { days = REPLAY_DAYS, stepMs = REPLAY_STEP_MS } = {},
-): Promise<number> {
+): Promise<number | null> {
   const now = deps.now?.() ?? Date.now();
+  // One replay at a time per product: a second would fetch every moment twice.
+  const queued = await deps.http.getJobs(['prioritized', 'waiting', 'delayed', 'active']);
+  if (queued.some((job) => job.data.reason === 'replay' && job.data.targetId === targetId)) {
+    return null;
+  }
   const target = await deps.db.target.findUniqueOrThrow({
     where: { id: targetId },
     include: {

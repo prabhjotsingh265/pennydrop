@@ -8,6 +8,7 @@ import { Queue } from 'bullmq';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import {
   BREAK_AFTER,
+  DEMO_EMAILS_PER_DAY,
   HOURLY_CAP,
   deliver,
   evaluate,
@@ -365,6 +366,33 @@ describe('evaluate', () => {
     );
     expect(statuses.filter((s) => s === 'pending')).toHaveLength(HOURLY_CAP);
     expect(statuses.filter((s) => s === 'batched')).toHaveLength(2);
+  });
+});
+
+describe('a demo', () => {
+  it('emails five alerts a day at most, each marked as from a demo', async () => {
+    const { workspace, site } = await setup();
+    await db.workspace.update({ where: { id: workspace.id }, data: { isDemo: true } });
+    const targets = await Promise.all(
+      Array.from({ length: DEMO_EMAILS_PER_DAY + 2 }, () => page(site.id)),
+    );
+    for (const target of targets) {
+      await db.watch.create({
+        data: {
+          workspaceId: workspace.id,
+          targetId: target.id,
+          rules: { create: { kind: 'any_drop' } },
+        },
+      });
+      await price(target.id, 4000, 0);
+      await evaluate(deps(), (await price(target.id, 3000, 1)).id);
+    }
+    const statuses = (await db.delivery.findMany()).map((d) => d.status);
+    expect(statuses.filter((s) => s === 'pending')).toHaveLength(DEMO_EMAILS_PER_DAY);
+    expect(statuses.filter((s) => s === 'skipped')).toHaveLength(2);
+    const first = await db.delivery.findFirstOrThrow({ where: { status: 'pending' } });
+    await deliver(sender(), first.id);
+    expect(mailed[0]!.subject).toMatch(/^\[Demo\] /);
   });
 });
 

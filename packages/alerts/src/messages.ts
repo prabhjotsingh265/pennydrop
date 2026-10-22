@@ -16,6 +16,8 @@ export interface AlertContent {
   reasons: string[];
   /** A big jump, confirmed by a second check before anyone was told. */
   verified?: boolean;
+  /** From a demo workspace: said so, since its visitor may have typed anyone's address. */
+  demo?: boolean;
   firedAt: string;
 }
 
@@ -80,8 +82,12 @@ export function compose(alert: AlertContent): Message {
     .map((line) => `• ${line}`)
     .join('\n');
   return {
-    subject: `${headline} (${alert.reasons[0] ? lowerFirst(alert.reasons[0]) : 'price alert'})`,
-    text: `${headline} at ${alert.host}\n\n${lines}\n\nSee it in Pennydrop: ${alert.link}\nThe shop’s page: ${alert.url}\n`,
+    subject: `${alert.demo ? '[Demo] ' : ''}${headline} (${alert.reasons[0] ? lowerFirst(alert.reasons[0]) : 'price alert'})`,
+    text: `${headline} at ${alert.host}\n\n${lines}\n\nSee it in Pennydrop: ${alert.link}\nThe shop’s page: ${alert.url}\n${
+      alert.demo
+        ? '\nThis came from a Pennydrop demo, which someone started with this address. It stops within a day.\n'
+        : ''
+    }`,
     slack: { text: `*<${alert.link}|${headline}>* at ${alert.host}\n${lines}` },
     discord: {
       embeds: [

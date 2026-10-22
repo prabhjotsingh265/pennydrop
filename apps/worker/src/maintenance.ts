@@ -1,9 +1,10 @@
 import { readdir, rm, stat } from 'node:fs/promises';
 import { join } from 'node:path';
-import type { Db } from '@pennydrop/db';
+import { syncTarget, type Db } from '@pennydrop/db';
 import { SCREENSHOT_KEEP_DAYS } from '@pennydrop/queue';
 
-const DAY = 86_400_000;
+const HOUR = 3_600_000;
+const DAY = 24 * HOUR;
 
 /** How long the check log keeps each kind of check. Price history is kept for good. */
 export const KEEP_DAYS = { succeeded: 30, failed: 90 };
@@ -55,4 +56,37 @@ export async function pruneScreenshots(db: Db, dir: string, now = Date.now()): P
     }
   }
   return removed;
+}
+
+/**
+ * Deletes demos a day after they began: their workspaces (with their watches,
+ * groups and alerts), their visitors, and their sandbox shops with all their
+ * history. A shared page that only demos watched is paused, as any page
+ * nobody watches is; the showcase's own workspace keeps its pages checked.
+ */
+export async function cleanDemos(
+  db: Db,
+  now = Date.now(),
+): Promise<{ demos: number; visitors: number; sandboxes: number }> {
+  const expired = await db.workspace.findMany({
+    where: { isDemo: true, expiresAt: { lt: new Date(now) } },
+    select: { id: true, watches: { select: { targetId: true } } },
+  });
+  const { count: demos } = await db.workspace.deleteMany({
+    where: { id: { in: expired.map((w) => w.id) } },
+  });
+  // Visitors left with no workspace. One signed in this past hour may be getting theirs now.
+  const { count: visitors } = await db.user.deleteMany({
+    where: {
+      isAnonymous: true,
+      memberships: { none: {} },
+      createdAt: { lt: new Date(now - HOUR) },
+    },
+  });
+  const { count: sandboxes } = await db.site.deleteMany({
+    where: { host: { startsWith: 'sandbox-' }, targets: { none: { watches: { some: {} } } } },
+  });
+  const shared = new Set(expired.flatMap((w) => w.watches.map((watch) => watch.targetId)));
+  for (const targetId of shared) await syncTarget(db, targetId);
+  return { demos, visitors, sandboxes };
 }

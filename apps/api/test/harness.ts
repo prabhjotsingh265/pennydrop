@@ -11,6 +11,7 @@ import { LiveHub } from '../src/live.ts';
 import type { Config } from '../src/config.ts';
 import type { Email } from '@pennydrop/alerts';
 import { FakePreviews } from './fake-previews.ts';
+import { FakeShop } from './fake-shop.ts';
 
 export const APP_URL = 'http://localhost:3000';
 
@@ -26,6 +27,10 @@ export function harness({ limiter = unlimited }: { limiter?: Limiter } = {}) {
     channelsKey: 'test-channels-key',
     screenshotDir: mkdtempSync(join(tmpdir(), 'pennydrop-api-shots-')),
     trustProxy: false,
+    demo: {
+      practiceShopUrl: 'http://{shop}.localhost:4000',
+      shopInternalUrl: 'http://shop.test:4000',
+    },
   };
   const wake = vi.fn(async () => {});
   // No real DNS in tests: names resolve to a public documentation address unless told otherwise.
@@ -34,6 +39,7 @@ export function harness({ limiter = unlimited }: { limiter?: Limiter } = {}) {
   const mail = async (email: Email) => void sent.push(email);
   const auth = createAuth({ db, mail, config });
   const previews = new FakePreviews();
+  const shop = new FakeShop();
   // One process, so "publishing" is handing the message straight to the hub.
   const live = new LiveHub(db);
   const published: unknown[] = [];
@@ -51,6 +57,7 @@ export function harness({ limiter = unlimited }: { limiter?: Limiter } = {}) {
     publish,
     mail,
     limiter,
+    shop,
     lookup,
     logger: false,
   });
@@ -82,6 +89,7 @@ export function harness({ limiter = unlimited }: { limiter?: Limiter } = {}) {
     wake,
     resolved,
     previews,
+    shop,
     screenshotDir: config.screenshotDir!,
     live,
     published,

@@ -90,6 +90,14 @@ export async function alertRoutes(app: FastifyInstance, { db, config, mail }: Al
 
   app.post('/api/channels', async (request, reply) => {
     const input = channelSchema.parse(request.body ?? {});
+    // A demo can't become a way to post into other people's Slack or Discord.
+    const { isDemo } = await db.workspace.findUniqueOrThrow({
+      where: { id: request.member!.workspaceId },
+      select: { isDemo: true },
+    });
+    if (isDemo && input.kind !== 'email') {
+      return reply.code(422).send({ error: 'The demo sends alerts by email only.', field: 'kind' });
+    }
     const checked = settingsFor(input, { local: config.localShops });
     if (!checked.ok) return reply.code(422).send({ error: checked.error, field: 'url' });
     const channel = await db.channel.create({
@@ -129,7 +137,12 @@ export async function alertRoutes(app: FastifyInstance, { db, config, mail }: Al
     if (!channel) return notFound(reply);
     const settings = open<ChannelSettings>(channel.settings, key);
     const now = new Date().toISOString();
+    const { isDemo } = await db.workspace.findUniqueOrThrow({
+      where: { id: channel.workspaceId },
+      select: { isDemo: true },
+    });
     const message = compose({
+      demo: isDemo,
       alertId: `test-${channel.id}`,
       label: 'A test from Pennydrop',
       host: 'pennydrop',

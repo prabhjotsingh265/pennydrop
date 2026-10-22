@@ -2,6 +2,7 @@ import { syncTarget, type Db } from '@pennydrop/db';
 import { MIN_PASSWORD_LENGTH } from '@pennydrop/domain';
 import { betterAuth } from 'better-auth';
 import { prismaAdapter } from 'better-auth/adapters/prisma';
+import { anonymous } from 'better-auth/plugins';
 import type { Config } from './config.ts';
 import { channelKey, hintFor, seal, type Mailer } from '@pennydrop/alerts';
 
@@ -69,6 +70,8 @@ export function createAuth({ db, mail, config }: { db: Db; mail: Mailer; config:
       user: {
         create: {
           after: async (user) => {
+            // A demo visitor gets a demo workspace instead, from the demo itself.
+            if ((user as { isAnonymous?: boolean }).isAnonymous) return;
             const email = { kind: 'email' as const, address: user.email };
             await db.workspace.create({
               data: {
@@ -96,6 +99,8 @@ export function createAuth({ db, mail, config }: { db: Db; mail: Mailer; config:
       },
     },
     session: { expiresIn: 30 * DAY, updateAge: DAY },
+    // The demo: one click signs in a visitor with no email or password, deleted with the demo.
+    plugins: [anonymous({ generateName: () => 'Demo visitor' })],
     // Counted in limits.ts instead: in Redis, shared by every process, the same in development.
     rateLimit: { enabled: false },
     advanced: {

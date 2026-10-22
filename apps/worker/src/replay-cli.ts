@@ -27,8 +27,9 @@ const targets = await db.target.findMany({
 let total = 0;
 for (const target of targets) {
   const readings = await startReplay({ db, http }, target.id, { days });
-  if (readings) console.log(`${target.url}: ${readings} readings to replay`);
-  total += readings;
+  if (readings === null) console.log(`${target.url}: replaying already`);
+  else if (readings) console.log(`${target.url}: ${readings} readings to replay`);
+  total += readings ?? 0;
 }
 console.log(
   total

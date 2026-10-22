@@ -1,4 +1,5 @@
 import { channelsKeyFromEnv } from '@pennydrop/alerts';
+import { LOCAL_PRACTICE_SHOP_URL } from '@pennydrop/domain';
 
 export interface Config {
   /** Where people open the app; links in emails point here. */
@@ -19,6 +20,21 @@ export interface Config {
    * believing it without a proxy would let anyone pick their own address.
    */
   trustProxy: boolean | string[];
+  /**
+   * The demo: the practice shops' public addresses, as a template ("https://{shop}.example.com"),
+   * and where the API reaches the shop's chaos controls inside the network. Without both, the
+   * demo is closed.
+   */
+  demo: { practiceShopUrl: string; shopInternalUrl: string; chaosToken?: string } | null;
+}
+
+/** Locally, the shop container answers for every practice shop; in production, both are set. */
+function demoFrom(env: NodeJS.ProcessEnv): Config['demo'] {
+  const local = env.LOCAL_SHOP_HOST;
+  const practiceShopUrl = env.PRACTICE_SHOP_URL || (local ? LOCAL_PRACTICE_SHOP_URL : undefined);
+  const shopInternalUrl = env.SHOP_INTERNAL_URL || (local ? `http://${local}:4000` : undefined);
+  if (!practiceShopUrl || !shopInternalUrl) return null;
+  return { practiceShopUrl, shopInternalUrl, chaosToken: env.SHOP_CHAOS_TOKEN || undefined };
 }
 
 /** TRUST_PROXY: "true", or a comma-separated list of addresses, ranges or names such as "loopback". */
@@ -49,5 +65,6 @@ export function configFromEnv(env: NodeJS.ProcessEnv = process.env): Config {
     localShopHost: env.LOCAL_SHOP_HOST || undefined,
     channelsKey,
     trustProxy: trustProxyFrom(env.TRUST_PROXY),
+    demo: demoFrom(env),
   };
 }

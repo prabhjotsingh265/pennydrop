@@ -18,7 +18,7 @@ import {
 } from './alerts.ts';
 import { dispatch, type DispatchResult } from './dispatch.ts';
 import { ingest } from './ingest.ts';
-import { pruneChecks, pruneScreenshots } from './maintenance.ts';
+import { cleanDemos, pruneChecks, pruneScreenshots } from './maintenance.ts';
 import { continueReplay } from './replay.ts';
 
 // The only process with the database: it decides what to check and records what was found.
@@ -73,12 +73,14 @@ const maintainer = new Worker(
   async () => ({
     pruned: await pruneChecks(db),
     screenshots: screenshotDir ? await pruneScreenshots(db, screenshotDir) : 0,
+    demos: await cleanDemos(db),
   }),
   { connection, concurrency: 1 },
 );
 maintainer.on('completed', (_job, result) =>
   console.log(
-    `maintenance: pruned ${result.pruned} old checks and ${result.screenshots} old screenshots`,
+    `maintenance: pruned ${result.pruned} old checks and ${result.screenshots} old screenshots; ` +
+      `deleted ${result.demos.demos} ended demos, ${result.demos.visitors} visitors and ${result.demos.sandboxes} sandbox shops`,
   ),
 );
 

@@ -31,5 +31,8 @@ export interface Me {
     quietUntil: number | null;
     digest: boolean;
     digestAt: number;
+    /** A one-click demo, deleted when it expires. */
+    isDemo: boolean;
+    expiresAt: string | null;
   };
 }

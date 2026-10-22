@@ -9,7 +9,7 @@ TOOLS := $(COMPOSE) run --rm --no-deps tools
 
 .DEFAULT_GOAL := help
 
-.PHONY: help setup up down restart build logs shell pnpm install migrate seed replay check test test-browser lint format
+.PHONY: help setup up down restart build logs shell pnpm install migrate seed replay demo check test test-browser lint format
 
 help: ## List the available commands
 	@grep -E '^[a-z-]+:.*## ' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*## "}; {printf "  make %-10s %s\n", $$1, $$2}'
@@ -55,6 +55,9 @@ migrate: ## Apply database migrations
 
 seed: ## Add the practice shops and their products, to watch the pipeline work
 	$(TOOLS) pnpm --filter @pennydrop/worker seed
+
+demo: ## Build the demo's showcase: its products, always checked, with replayed history (days=60)
+	$(TOOLS) pnpm --filter @pennydrop/worker demo --days $(or $(days),60)
 
 replay: ## Replay the history of watched practice-shop products (days=60 to choose how far back)
 	$(TOOLS) pnpm --filter @pennydrop/worker replay --days $(or $(days),60)

@@ -3,7 +3,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { resetDatabase, testDb } from '@pennydrop/db/testing';
 import { afterAll, beforeEach, describe, expect, it } from 'vitest';
-import { pruneChecks, pruneScreenshots } from './maintenance.ts';
+import { cleanDemos, pruneChecks, pruneScreenshots } from './maintenance.ts';
 
 const db = testDb('worker');
 const NOW = Date.UTC(2026, 9, 21);
@@ -97,5 +97,82 @@ describe('pruneScreenshots', () => {
 
   it('copes with no folder yet', async () => {
     expect(await pruneScreenshots(db, join(tmpdir(), 'pennydrop-none-here'), NOW)).toBe(0);
+  });
+});
+
+describe('cleanDemos', () => {
+  it('deletes ended demos, their visitors and their own shops, and pauses what only they watched', async () => {
+    const shared = await db.site.create({
+      data: { host: 'fickle.localhost', registrable: 'fickle.localhost' },
+    });
+    const kettle = await db.target.create({
+      data: { siteId: shared.id, url: 'k', canonicalUrl: 'k' },
+    });
+    const vase = await db.target.create({
+      data: { siteId: shared.id, url: 'v', canonicalUrl: 'v' },
+    });
+    const demo = async (token: string, endsInHours: number) => {
+      const visitor = await db.user.create({
+        data: {
+          id: `visitor-${token}`,
+          name: 'Demo visitor',
+          email: `temp-${token}@anonymous.placeholder.invalid`,
+          isAnonymous: true,
+          createdAt: new Date(NOW - 30 * 3_600_000),
+        },
+      });
+      const sandbox = await db.site.create({
+        data: { host: `sandbox-${token}.localhost`, registrable: `sandbox-${token}.localhost` },
+      });
+      const mug = await db.target.create({
+        data: { siteId: sandbox.id, url: `m-${token}`, canonicalUrl: `m-${token}` },
+      });
+      return db.workspace.create({
+        data: {
+          name: 'Demo',
+          isDemo: true,
+          expiresAt: new Date(NOW + endsInHours * 3_600_000),
+          memberships: { create: { userId: visitor.id } },
+          watches: { create: [{ targetId: kettle.id }, { targetId: mug.id }] },
+        },
+      });
+    };
+    await demo('ended0001', -1);
+    await demo('running01', 5);
+    // The showcase keeps the vase watched; only the ended demo and the running one watch the kettle.
+    await db.workspace.create({
+      data: { name: 'Showcase', watches: { create: { targetId: vase.id } } },
+    });
+
+    expect(await cleanDemos(db, NOW)).toEqual({ demos: 1, visitors: 1, sandboxes: 1 });
+    expect((await db.site.findMany({ orderBy: { host: 'asc' } })).map((s) => s.host)).toEqual([
+      'fickle.localhost',
+      'sandbox-running01.localhost',
+    ]);
+    expect(await db.user.findMany({ select: { id: true } })).toEqual([{ id: 'visitor-running01' }]);
+    // Still watched by the running demo.
+    expect((await db.target.findUniqueOrThrow({ where: { id: kettle.id } })).status).toBe('active');
+
+    // A day later the other ends too; then nothing watches the kettle, and it's paused.
+    expect(await cleanDemos(db, NOW + 6 * 3_600_000)).toEqual({
+      demos: 1,
+      visitors: 1,
+      sandboxes: 1,
+    });
+    expect((await db.target.findUniqueOrThrow({ where: { id: kettle.id } })).status).toBe('paused');
+    expect((await db.target.findUniqueOrThrow({ where: { id: vase.id } })).status).toBe('active');
+  });
+
+  it('leaves a visitor signed in this past hour, who may be getting their demo now', async () => {
+    await db.user.create({
+      data: {
+        id: 'new',
+        name: 'Demo visitor',
+        email: 'temp-new@anonymous.placeholder.invalid',
+        isAnonymous: true,
+        createdAt: new Date(NOW - 10 * 60_000),
+      },
+    });
+    expect((await cleanDemos(db, NOW)).visitors).toBe(0);
   });
 });

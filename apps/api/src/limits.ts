@@ -32,6 +32,9 @@ export const LIMITS = {
   'POST /api/watches/:id/check': { by: 'user', max: 30, windowMs: 10 * MINUTE },
   'POST /api/previews': { by: 'user', max: 30, windowMs: 10 * MINUTE },
   'POST /api/watches/bulk': { by: 'user', max: 10, windowMs: HOUR },
+  /** Each makes a visitor, a workspace and a shop of their own. */
+  'POST /api/demo': { by: 'ip', max: 5, windowMs: HOUR },
+  'POST /api/demo/break': { by: 'user', max: 30, windowMs: 10 * MINUTE },
   /** A test message can go to any address someone types. */
   'POST /api/channels/:id/test': { by: 'user', max: 10, windowMs: 10 * MINUTE },
 } as const satisfies Record<string, Rule & { by: 'ip' | 'user' }>;

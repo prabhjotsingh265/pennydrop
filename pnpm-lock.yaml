@@ -216,6 +216,9 @@ importers:
       '@pennydrop/db':
         specifier: workspace:*
         version: link:../../packages/db
+      '@pennydrop/domain':
+        specifier: workspace:*
+        version: link:../../packages/domain
       '@pennydrop/queue':
         specifier: workspace:*
         version: link:../../packages/queue

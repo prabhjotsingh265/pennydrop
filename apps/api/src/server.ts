@@ -13,6 +13,7 @@ import { buildApp } from './app.ts';
 import { createAuth } from './auth.ts';
 import { configFromEnv } from './config.ts';
 import { redisLimiter } from './limits.ts';
+import { shopControls } from './shop-controls.ts';
 import { LiveHub } from './live.ts';
 
 import { queuePreviews } from './previews.ts';
@@ -54,8 +55,9 @@ const publish = (message: LiveMessage) =>
   );
 
 const limiter = redisLimiter(connection);
+const shop = config.demo ? shopControls(config.demo.shopInternalUrl, config.demo.chaosToken) : null;
 
-const app = buildApp({ db, auth, config, wake, previews, live, publish, mail, limiter });
+const app = buildApp({ db, auth, config, wake, previews, live, publish, mail, limiter, shop });
 const port = Number(process.env.API_PORT ?? 3001);
 
 // Finish in-flight requests before exiting when Docker stops the container.

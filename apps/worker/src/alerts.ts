@@ -25,6 +25,8 @@ export const DELIVERY_ATTEMPTS = 6;
 export const RETRY_DELAYS_MS = [60_000, 180_000, 480_000, 900_000, 1_800_000];
 /** Failed deliveries in a row before a channel is marked broken. */
 export const BREAK_AFTER = 3;
+/** A demo can email whatever address its visitor types, so it sends only a few a day. */
+export const DEMO_EMAILS_PER_DAY = 5;
 
 export interface NotifyJob {
   deliveryId: string;
@@ -61,9 +63,22 @@ async function placement(
     quietUntil: number | null;
     digest: boolean;
     digestAt: number;
+    isDemo: boolean;
   },
   now: number,
 ): Promise<{ status: DeliveryStatus; sendAfter: Date | null; heldFor: string | null }> {
+  if (workspace.isDemo) {
+    const today = await tx.delivery.count({
+      where: {
+        channelId,
+        status: { in: ['pending', 'batched', 'sent'] },
+        createdAt: { gt: new Date(now - 86_400_000) },
+      },
+    });
+    if (today >= DEMO_EMAILS_PER_DAY) {
+      return { status: 'skipped', sendAfter: null, heldFor: 'a demo sends 5 emails a day at most' };
+    }
+  }
   if (workspace.digest) {
     return {
       status: 'batched',
@@ -286,7 +301,14 @@ export async function evaluate(deps: AlertDeps, pricePointId: string) {
 async function contentFor(db: Db, alertId: string, appUrl: string): Promise<AlertContent> {
   const alert = await db.alert.findUniqueOrThrow({
     where: { id: alertId },
-    include: { watch: { include: { target: { include: { site: { select: { host: true } } } } } } },
+    include: {
+      watch: {
+        include: {
+          target: { include: { site: { select: { host: true } } } },
+          workspace: { select: { isDemo: true } },
+        },
+      },
+    },
   });
   const { watch } = alert;
   return {
@@ -300,6 +322,7 @@ async function contentFor(db: Db, alertId: string, appUrl: string): Promise<Aler
     kinds: alert.kinds,
     reasons: alert.reasons,
     verified: alert.verified,
+    demo: watch.workspace.isDemo,
     firedAt: alert.firedAt.toISOString(),
   };
 }

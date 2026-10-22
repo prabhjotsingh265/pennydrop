@@ -8,6 +8,21 @@ describe('configFromEnv', () => {
     expect(config.mail).toEqual({ from: 'Pennydrop <hello@pennydrop.test>' });
   });
 
+  it('opens the demo where the practice shops can be reached', () => {
+    expect(configFromEnv({}).demo).toBeNull();
+    expect(configFromEnv({ LOCAL_SHOP_HOST: 'shop' }).demo).toEqual({
+      practiceShopUrl: 'http://{shop}.localhost:4000',
+      shopInternalUrl: 'http://shop:4000',
+    });
+    expect(
+      configFromEnv({
+        PRACTICE_SHOP_URL: 'https://{shop}.example.com',
+        SHOP_INTERNAL_URL: 'http://shop:4000',
+        SHOP_CHAOS_TOKEN: 't',
+      }).demo,
+    ).toMatchObject({ practiceShopUrl: 'https://{shop}.example.com', chaosToken: 't' });
+  });
+
   it('believes a proxy about addresses only when told to', () => {
     expect(configFromEnv({}).trustProxy).toBe(false);
     expect(trustProxyFrom('true')).toBe(true);

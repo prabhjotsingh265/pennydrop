@@ -8,11 +8,13 @@ import { ZodError } from 'zod';
 import { systemLookup, type Lookup } from './addresses.ts';
 import type { Auth } from './auth.ts';
 import { alertRoutes } from './alerts.ts';
+import { demoRoutes, demoStartRoute } from './demo.ts';
 import type { Config } from './config.ts';
 import type { LiveHub } from './live.ts';
 import { groupRoutes } from './groups.ts';
 import { limitHook, type Limiter } from './limits.ts';
 import { previewRoutes } from './preview-routes.ts';
+import type { ShopControls } from './shop-controls.ts';
 import { reportRoutes } from './reports.ts';
 import type { Previews } from './previews.ts';
 import { watchRoutes } from './watches.ts';
@@ -45,6 +47,8 @@ export interface AppDeps {
   publish: (message: LiveMessage) => Promise<void>;
   /** Counts tries at sign-in, sign-up, "check now" and the like (`limits.ts`). */
   limiter: Limiter;
+  /** The practice shop's chaos controls, for demo sandboxes. Without them, the demo is closed. */
+  shop?: ShopControls | null;
   lookup?: Lookup;
   now?: () => number;
   logger?: boolean;
@@ -71,6 +75,10 @@ export function buildApp(deps: AppDeps) {
     url: '/api/auth/*',
     handler: async (request, reply) => {
       const url = new URL(request.url, config.appUrl);
+      // Demo visitors are signed in by /api/demo, which gives them their workspace; never directly.
+      if (url.pathname === '/api/auth/sign-in/anonymous') {
+        return reply.code(404).send({ error: 'Not found.' });
+      }
       const response = await auth.handler(
         new Request(url, {
           method: request.method,
@@ -89,6 +97,16 @@ export function buildApp(deps: AppDeps) {
     },
   });
 
+  const demo = {
+    db,
+    auth,
+    config,
+    shop: deps.shop ?? null,
+    wake: deps.wake,
+    now: deps.now ?? Date.now,
+  };
+  app.register(async (open) => demoStartRoute(open, demo));
+
   // Everything else under /api is for signed-in people, in their own workspace.
   app.decorateRequest('member', null);
   app.register(async (dashboard) => {
@@ -102,8 +120,14 @@ export function buildApp(deps: AppDeps) {
       const membership = await db.membership.findFirst({
         where: { userId: session.user.id },
         orderBy: { createdAt: 'asc' },
+        include: { workspace: { select: { isDemo: true, expiresAt: true } } },
       });
       if (!membership) return reply.code(403).send({ error: 'You don’t belong to a workspace.' });
+      // A demo ends when it expires, though the nightly clean-up deletes it later.
+      const { isDemo, expiresAt } = membership.workspace;
+      if (isDemo && expiresAt && expiresAt.getTime() <= (deps.now ?? Date.now)()) {
+        return reply.code(401).send({ error: 'This demo has ended. Start another any time.' });
+      }
       request.member = {
         userId: session.user.id,
         name: session.user.name,
@@ -128,6 +152,8 @@ export function buildApp(deps: AppDeps) {
           quietUntil: workspace.quietUntil,
           digest: workspace.digest,
           digestAt: workspace.digestAt,
+          isDemo: workspace.isDemo,
+          expiresAt: workspace.expiresAt?.toISOString() ?? null,
         },
       };
     };
@@ -156,6 +182,7 @@ export function buildApp(deps: AppDeps) {
     await reportRoutes(dashboard, { db, screenshotDir: config.screenshotDir });
     await groupRoutes(dashboard, { db });
     await alertRoutes(dashboard, { db, config, mail: deps.mail });
+    await demoRoutes(dashboard, demo);
 
     // Live updates for the dashboard, as Server-Sent Events.
     dashboard.get('/api/events', async (request, reply) => {
