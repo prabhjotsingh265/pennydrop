@@ -1,4 +1,9 @@
-import type { Config } from './config.ts';
+/** Where emails go out: Resend in production, Mailpit locally. */
+export interface MailSettings {
+  from: string;
+  mailpitUrl?: string;
+  resendKey?: string;
+}
 
 export interface Email {
   to: string;
@@ -19,7 +24,7 @@ function parseAddress(from: string): { name?: string; email: string } {
  * is sent), and the console when neither is set up. Both speak plain HTTP, so
  * no mail library is needed.
  */
-export function createMailer({ mail }: Config): Mailer {
+export function createMailer(mail: MailSettings): Mailer {
   if (mail.resendKey) {
     return async ({ to, subject, text }) => {
       const response = await fetch('https://api.resend.com/emails', {

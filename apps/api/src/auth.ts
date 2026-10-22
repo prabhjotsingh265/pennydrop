@@ -3,7 +3,7 @@ import { MIN_PASSWORD_LENGTH } from '@pennydrop/domain';
 import { betterAuth } from 'better-auth';
 import { prismaAdapter } from 'better-auth/adapters/prisma';
 import type { Config } from './config.ts';
-import type { Mailer } from './mail.ts';
+import type { Mailer } from '@pennydrop/alerts';
 
 const DAY = 86_400;
 

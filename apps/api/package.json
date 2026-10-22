@@ -10,6 +10,7 @@
     "test": "vitest run"
   },
   "dependencies": {
+    "@pennydrop/alerts": "workspace:*",
     "@pennydrop/db": "workspace:*",
     "@pennydrop/domain": "workspace:*",
     "@pennydrop/fetch": "workspace:*",

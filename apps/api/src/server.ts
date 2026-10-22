@@ -1,3 +1,4 @@
+import { createMailer } from '@pennydrop/alerts';
 import { createDb } from '@pennydrop/db';
 import {
   LIVE_CHANNEL,
@@ -12,12 +13,12 @@ import { buildApp } from './app.ts';
 import { createAuth } from './auth.ts';
 import { configFromEnv } from './config.ts';
 import { LiveHub } from './live.ts';
-import { createMailer } from './mail.ts';
+
 import { queuePreviews } from './previews.ts';
 
 const config = configFromEnv();
 const db = createDb();
-const auth = createAuth({ db, mail: createMailer(config), config });
+const auth = createAuth({ db, mail: createMailer(config.mail), config });
 const connection = redisConnection();
 const ticks = new Queue(QUEUES.dispatch, { connection });
 // However many people press "check now" at once, at most one extra dispatch waits behind the running one.

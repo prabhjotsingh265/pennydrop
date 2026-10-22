@@ -8,7 +8,7 @@ import { buildApp } from '../src/app.ts';
 import { createAuth } from '../src/auth.ts';
 import { LiveHub } from '../src/live.ts';
 import type { Config } from '../src/config.ts';
-import type { Email } from '../src/mail.ts';
+import type { Email } from '@pennydrop/alerts';
 import { FakePreviews } from './fake-previews.ts';
 
 export const APP_URL = 'http://localhost:3000';

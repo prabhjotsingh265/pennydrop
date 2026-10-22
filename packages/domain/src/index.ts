@@ -31,3 +31,19 @@ export { updateWorkspaceSchema, type UpdateWorkspaceInput } from './workspace.ts
 export type { PreviewChoice, PreviewShown, PreviewStatus, PreviewView } from './previews.ts';
 export type { CheckFeed, CheckFeedItem, SiteSummary } from './reports.ts';
 export { groupSchema, type GroupDetail, type GroupInput, type GroupSummary } from './groups.ts';
+export {
+  CHANNEL_KINDS,
+  RULE_KINDS,
+  alertSettingsSchema,
+  channelSchema,
+  ruleSchema,
+  ruleWords,
+  type AlertSummary,
+  type ChannelInput,
+  type ChannelKind,
+  type ChannelSummary,
+  type DeliveryStatus,
+  type RuleInput,
+  type RuleKind,
+  type RuleSummary,
+} from './alerts.ts';
