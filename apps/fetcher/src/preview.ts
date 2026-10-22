@@ -170,9 +170,13 @@ export function createPreviewProcessor(deps: PreviewDeps) {
         screenshot = { width: SCREENSHOT_WIDTH, height: result.screenshotHeight };
       }
       const extraction = result.extraction;
-      const { choices, selectors } = result.html
-        ? choicesFrom(result.html, result.boxes, extraction, result.screenshotHeight)
-        : { choices: [], selectors: [] };
+      // Prices to pick from only when the page is a product whose price wasn't sure:
+      // never on a page that's refused us, gone, or lists many products.
+      const pickable = result.outcome === 'ok' || result.outcome === 'price_not_found';
+      const { choices, selectors } =
+        result.html && pickable
+          ? choicesFrom(result.html, result.boxes, extraction, result.screenshotHeight)
+          : { choices: [], selectors: [] };
       const amount = extraction?.amount ?? null;
       const plain = result.source && amount !== null ? extract({ html: result.source }) : null;
 

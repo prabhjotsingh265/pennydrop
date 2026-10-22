@@ -194,9 +194,28 @@ describe('suspicious jumps', () => {
 });
 
 describe('healing', () => {
+  const brokenSelector = {
+    strategy: 'heuristic',
+    locator: '[data-price]',
+    readings: [
+      {
+        strategy: 'selector',
+        status: 'missing' as const,
+        amount: null,
+        confidence: null,
+        note: null,
+      },
+    ],
+  };
+
   it('retires a broken selector and saves the one that found the price', async () => {
     const old = await db.recipe.create({
       data: { siteId, selector: '.price-now', source: 'auto' },
+    });
+    // Read before: so a selector that no longer finds anything means the page changed.
+    await db.target.update({
+      where: { id: targetId },
+      data: { lastSuccessAt: new Date(NOW - MINUTE) },
     });
     await run(
       {
@@ -218,6 +237,22 @@ describe('healing', () => {
       expect.arrayContaining(['layout_changed', 'selector_healed']),
     );
   });
+
+  it('never lets a page read for the first time change how the whole shop is read', async () => {
+    const old = await db.recipe.create({
+      data: { siteId, selector: '.price-now', source: 'auto' },
+    });
+    const result = await run(brokenSelector, {
+      recipe: { id: old.id, selector: '.price-now', attribute: null, pattern: null },
+    });
+    // Its own price still counts…
+    expect(result).toMatchObject({ recorded: true, outcome: 'ok' });
+    // …but the shop's selector stays, and nobody is told of a redesign.
+    expect(await db.recipe.findMany({ where: { retiredAt: null } })).toMatchObject([
+      { id: old.id, selector: '.price-now' },
+    ]);
+    expect(await eventKinds()).not.toContain('selector_healed');
+  });
 });
 
 describe('healing a whole site', () => {
@@ -225,10 +260,18 @@ describe('healing a whole site', () => {
     const old = await db.recipe.create({
       data: { siteId, selector: '.price-now', source: 'auto' },
     });
+    // Products read before, now all coming back with the old selector broken.
+    const before = new Date(NOW - MINUTE);
+    await db.target.update({ where: { id: targetId }, data: { lastSuccessAt: before } });
     const others = await Promise.all(
       [1, 2, 3].map((n) =>
         db.target.create({
-          data: { siteId, url: `https://fickle.example.com/p/${n}`, canonicalUrl: `p${n}` },
+          data: {
+            siteId,
+            url: `https://fickle.example.com/p/${n}`,
+            canonicalUrl: `p${n}`,
+            lastSuccessAt: before,
+          },
         }),
       ),
     );

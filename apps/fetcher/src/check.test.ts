@@ -120,6 +120,13 @@ describe('checking a product', () => {
     );
   });
 
+  it('says a category or home page has no single product on it', async () => {
+    const result = await checker.check({ url: at('fickle', '/') });
+    expect(result.outcome).toBe('gone');
+    expect(result.detail).toMatch(/lists several products/);
+    expect(result.extraction?.amount).toBeNull();
+  });
+
   it('gives up on a shop that’s too slow', async () => {
     settings.update('slowpoke', { latencyMs: [3_000, 3_000] });
     expect((await checker.check({ url: at('slowpoke', '/p/stoneware-mug') })).outcome).toBe(

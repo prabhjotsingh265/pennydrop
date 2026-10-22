@@ -3,4 +3,12 @@ export { findPrices, parseAmount, parsePrice, type FoundPrice, type PriceHints }
 export { looksGenerated, selectorFor } from './selector.ts';
 export type { Candidate, Recipe, Strategy, StrategyResult } from './strategies.ts';
 export { minorDigits } from './currency.ts';
-export { elementAt, firstElement, loadPage, pathOf, type LayoutBox, type Page } from './page.ts';
+export {
+  elementAt,
+  firstElement,
+  loadPage,
+  looksLikeListing,
+  pathOf,
+  type LayoutBox,
+  type Page,
+} from './page.ts';

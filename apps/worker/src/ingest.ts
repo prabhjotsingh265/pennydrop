@@ -167,11 +167,14 @@ export async function ingest(deps: IngestDeps, data: IngestJob): Promise<IngestR
         activeRecipeId = active?.id ?? null;
       }
       if (SUCCESS.has(outcome) && report.locator) {
+        // Only a product read before can say the shop changed: a page never read yet (a new
+        // product, or a page that isn't one) may simply be built differently.
         if (
           job.recipe &&
           job.recipe.id === activeRecipeId &&
           selector?.status === 'missing' &&
-          report.locator !== job.recipe.selector
+          report.locator !== job.recipe.selector &&
+          target.lastSuccessAt !== null
         ) {
           recipeChange = {
             retire: job.recipe.id,

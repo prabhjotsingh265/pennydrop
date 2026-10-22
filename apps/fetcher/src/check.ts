@@ -76,6 +76,9 @@ export interface CheckerOptions {
   now?: () => number;
 }
 
+const LISTING =
+  'This page lists several products rather than showing one. Open the product itself and use its address.';
+
 const BOT_WALL =
   /\b(captcha|are you a robot|unusual traffic|verify (that )?you are (a )?human|request blocked|bot detection|access denied|please enable (javascript|cookies))\b/i;
 
@@ -212,6 +215,9 @@ export function createChecker(options: CheckerOptions) {
         const refused = page.status === null ? null : fromStatus(page.status);
         if (refused) return finish('browser', refused.outcome, refused.detail, extra);
         const extraction = extract({ html: page.html, boxes: page.boxes, recipe: request.recipe });
+        if (extraction.amount === null && extraction.listing) {
+          return finish('browser', 'gone', LISTING, { ...extra, extraction });
+        }
         if (extraction.amount === null) {
           const wall = BOT_WALL.test(page.html);
           return finish(
@@ -270,6 +276,8 @@ export function createChecker(options: CheckerOptions) {
     const extraction = extract({ html: page.body ?? '', recipe: request.recipe });
     if (extraction.amount !== null)
       return finish('http', 'ok', 'Read from the page’s HTML.', { extraction });
+    // A category or home page: no single product here, and a browser wouldn't change that.
+    if (extraction.listing) return finish('http', 'gone', LISTING, { extraction });
     if (BOT_WALL.test(page.body ?? '')) {
       return finish('http', 'blocked', 'The shop showed a “prove you’re human” page.', {
         extraction,

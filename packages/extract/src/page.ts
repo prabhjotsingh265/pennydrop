@@ -1,6 +1,7 @@
 import * as cheerio from 'cheerio';
 import type { CheerioAPI } from 'cheerio';
 import { isTag, isText, type AnyNode, type Element } from 'domhandler';
+import { findPrices, type PriceHints } from './parse.ts';
 
 export interface Page {
   $: CheerioAPI;
@@ -192,4 +193,25 @@ export function pathOf(element: Element): number[] {
     node = node.parent;
   }
   return path;
+}
+
+/** This many prices in elements built alike, with nowhere to buy, make a page of products. */
+const LISTING_MIN = 4;
+
+/**
+ * A category or home page: a grid of products, each with its price, and no
+ * buy button. Its prices belong to many products, so none of them is "the"
+ * price. A product page keeps its buy button even when related products
+ * are listed below it.
+ */
+export function looksLikeListing(page: Page, hints: PriceHints = {}): boolean {
+  if (page.buyButtons.length > 0) return false;
+  const shapes = new Map<string, number>();
+  for (const { text, element } of textNodes(page)) {
+    if (!findPrices(text, hints).length) continue;
+    const classes = (element.attribs.class ?? '').trim().split(/\s+/).sort().join('.');
+    const shape = `${element.name}.${classes}`;
+    shapes.set(shape, (shapes.get(shape) ?? 0) + 1);
+  }
+  return Math.max(0, ...shapes.values()) >= LISTING_MIN;
 }

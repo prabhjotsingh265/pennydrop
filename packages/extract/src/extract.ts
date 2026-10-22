@@ -1,4 +1,4 @@
-import { loadPage, type LayoutBox } from './page.ts';
+import { loadPage, looksLikeListing, type LayoutBox } from './page.ts';
 import type { PriceHints } from './parse.ts';
 import {
   fromHeuristics,
@@ -26,6 +26,8 @@ export interface Extraction {
   agreeing: Strategy[];
   /** Two trusted strategies read different prices: check again before believing either. */
   conflict: boolean;
+  /** A page of many products, not one: only structured data may name a price here. */
+  listing: boolean;
   /** Where the winning price sits on the page, when a selector can point at it. */
   locator: string | null;
   /** The attribute to read there, when the price isn't the element's text. */
@@ -65,10 +67,17 @@ export function extract({ html, recipe, hints = {}, boxes = [] }: ExtractInput):
   // The currency the page declares settles "$" and "kr" for the readings that follow.
   const declared = structured.flatMap((r) => r.candidates).find((c) => c.currency)?.currency;
   const pageHints = { currency: hints.currency ?? declared ?? null };
+  // On a listing, a saved selector or the heuristics would only find some product's card.
+  const listing = looksLikeListing(page, pageHints);
+  const skipped = (strategy: Strategy): StrategyResult => ({
+    strategy,
+    status: 'skipped',
+    candidates: [],
+  });
   const results = [
-    fromSelector(page, recipe, pageHints),
+    listing ? skipped('selector') : fromSelector(page, recipe, pageHints),
     ...structured,
-    fromHeuristics(page, pageHints, boxes),
+    listing ? skipped('heuristic') : fromHeuristics(page, pageHints, boxes),
   ];
 
   const best = results.map((r) => r.candidates[0]).filter((c): c is Candidate => Boolean(c));
@@ -109,6 +118,7 @@ export function extract({ html, recipe, hints = {}, boxes = [] }: ExtractInput):
     strategy: accepted ? (agreeing[0] ?? null) : null,
     agreeing: accepted ? agreeing : [],
     conflict: trustedGroups.length > 1,
+    listing,
     locator: pointer?.locator ?? null,
     locatorAttribute: pointer?.attribute ?? null,
     results,
