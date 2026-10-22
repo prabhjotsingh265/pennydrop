@@ -3,7 +3,7 @@ import { signInSchema, type SignInInput } from '@pennydrop/domain';
 import { useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { useForm } from 'react-hook-form';
-import { Link, useNavigate, useSearchParams } from 'react-router';
+import { Link, useLocation, useNavigate, useSearchParams } from 'react-router';
 import { authClient } from '../lib/auth-client.ts';
 import { fetchMe, keys } from '../lib/queries.ts';
 import { safeNext } from '../lib/time.ts';
@@ -16,6 +16,8 @@ export function SignIn() {
   const navigate = useNavigate();
   const [params] = useSearchParams();
   const queryClient = useQueryClient();
+  // A message carried over from where they came from: a new password, a deleted account.
+  const carried = (useLocation().state as { notice?: string } | null)?.notice;
   const [problem, setProblem] = useState<'wrong' | 'unconfirmed' | 'other' | null>(null);
   const [resent, setResent] = useState(false);
   const form = useForm<SignInInput>({ resolver: zodResolver(signInSchema) });
@@ -51,6 +53,7 @@ export function SignIn() {
   return (
     <AuthLayout title="Sign in">
       <form onSubmit={onSubmit} noValidate className="space-y-5">
+        {carried && !problem && <Notice>{carried}</Notice>}
         {problem === 'wrong' && (
           <Notice tone="error">That email and password don’t match an account.</Notice>
         )}
@@ -90,6 +93,11 @@ export function SignIn() {
         <Button type="submit" variant="primary" busy={isSubmitting} className="w-full">
           Sign in
         </Button>
+        <p className="text-center text-sm">
+          <Link to="/forgot" className="text-ink-2 underline hover:text-ink">
+            Forgotten your password?
+          </Link>
+        </p>
       </form>
       <p className="mt-8 text-sm text-ink-2">
         New here?{' '}

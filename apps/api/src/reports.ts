@@ -6,6 +6,7 @@ import { z } from 'zod';
 import { readFile } from 'node:fs/promises';
 import { screenshotPath } from '@pennydrop/queue';
 import { csv, fileName } from './csv.ts';
+import { zip } from './zip.ts';
 import { labelFromUrl } from './watches.ts';
 
 const GOOD: CheckOutcome[] = ['ok', 'unchanged', 'suspicious'];
@@ -193,8 +194,8 @@ export async function reportRoutes(
     return reply.type('image/jpeg').header('cache-control', 'private, max-age=86400').send(image);
   });
 
-  app.get('/api/watches.csv', async (request, reply) => {
-    const { workspaceId } = request.member!;
+  /** The workspace's products as a spreadsheet: one row each. */
+  async function watchlistCsv(workspaceId: string): Promise<string> {
     const watches = await db.watch.findMany({
       where: { workspaceId },
       include: { target: { include: { site: { select: { host: true } } } } },
@@ -211,25 +212,66 @@ export async function reportRoutes(
       watch.intervalSeconds / 60,
       target.lastSuccessAt?.toISOString() ?? null,
     ]);
-    return reply
+    return csv([
+      [
+        'name',
+        'shop',
+        'address',
+        'price',
+        'currency',
+        'target',
+        'status',
+        'check_every_minutes',
+        'last_read',
+      ],
+      ...rows,
+    ]);
+  }
+
+  /** Every price each product has had, as change points: one row per price, from first seen to last. */
+  async function historyCsv(workspaceId: string): Promise<string> {
+    const watches = await db.watch.findMany({
+      where: { workspaceId },
+      include: { target: { include: { pricePoints: { orderBy: { firstSeenAt: 'asc' } } } } },
+      orderBy: { createdAt: 'asc' },
+    });
+    const rows = watches.flatMap(({ target, ...watch }) =>
+      target.pricePoints.map((point) => [
+        watch.label ?? target.title ?? labelFromUrl(target.url),
+        target.url,
+        point.firstSeenAt.toISOString(),
+        point.lastSeenAt.toISOString(),
+        decimal(point.price, point.currency),
+        decimal(point.wasPrice, point.currency),
+        point.currency,
+        point.inStock,
+      ]),
+    );
+    return csv([
+      ['name', 'address', 'first_seen', 'last_seen', 'price', 'was_price', 'currency', 'in_stock'],
+      ...rows,
+    ]);
+  }
+
+  app.get('/api/watches.csv', async (request, reply) =>
+    reply
       .type('text/csv; charset=utf-8')
       .header('content-disposition', 'attachment; filename="pennydrop-watchlist.csv"')
-      .send(
-        csv([
-          [
-            'name',
-            'shop',
-            'address',
-            'price',
-            'currency',
-            'target',
-            'status',
-            'check_every_minutes',
-            'last_read',
-          ],
-          ...rows,
-        ]),
-      );
+      .send(await watchlistCsv(request.member!.workspaceId)),
+  );
+
+  // Everything this workspace has, to take elsewhere: a ZIP of spreadsheets.
+  app.get('/api/export', async (request, reply) => {
+    const { workspaceId } = request.member!;
+    const day = new Date().toISOString().slice(0, 10);
+    const archive = zip([
+      { name: 'products.csv', data: await watchlistCsv(workspaceId) },
+      { name: 'price-history.csv', data: await historyCsv(workspaceId) },
+    ]);
+    return reply
+      .type('application/zip')
+      .header('content-disposition', `attachment; filename="pennydrop-export-${day}.zip"`)
+      .send(archive);
   });
 
   app.get('/api/watches/:id/history.csv', async (request, reply) => {

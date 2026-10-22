@@ -13,6 +13,7 @@ import {
 import { Button } from '../ui/Button.tsx';
 import { Field } from '../ui/Field.tsx';
 import { Notice } from '../ui/Notice.tsx';
+import { DeleteAccount } from './DeleteAccount.tsx';
 
 /** The workspace's name and time zone, the account, and taking your data with you. */
 export function SettingsPage() {
@@ -120,13 +121,19 @@ export function SettingsPage() {
           Your data
         </h2>
         <p className="text-sm text-ink-2">
-          Take your watchlist with you as a spreadsheet. Each product’s full price history downloads
-          from its own page.
+          Take your products and every price they’ve had with you, as spreadsheets.
         </p>
-        <a href="/api/watches.csv" download className="text-sm text-copper-deep underline">
-          Download the watchlist (CSV)
-        </a>
+        <div className="flex flex-wrap gap-x-6 gap-y-2">
+          <a href="/api/export" download className="text-sm text-copper-deep underline">
+            Download everything (ZIP of spreadsheets)
+          </a>
+          <a href="/api/watches.csv" download className="text-sm text-copper-deep underline">
+            Just the watchlist (CSV)
+          </a>
+        </div>
       </section>
+
+      <DeleteAccount />
     </div>
   );
 }
