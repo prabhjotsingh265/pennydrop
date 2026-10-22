@@ -13,7 +13,7 @@ const LIGHT = {
   ink: '#122026',
   ink2: '#4f5d63',
   copper: '#d77f3d',
-  copperDeep: '#9b471b',
+  copperDeep: '#913e10',
   onCopper: '#122026',
 };
 const DARK = {

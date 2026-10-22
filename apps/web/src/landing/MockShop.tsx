@@ -155,7 +155,7 @@ export function MockShop({ morph, price, was, watch, showMarkup = true }: MockSh
         <div className="absolute inset-x-0 top-[9%] h-px bg-[#e8e2da]" />
 
         <div
-          className="absolute text-[1.9cqw] text-[#8a8178]"
+          className="absolute text-[1.9cqw] text-[#6f675f]"
           style={{ ...box('breadcrumb', morph), opacity: 1 - morph }}
         >
           Home / Kitchen / Mugs
@@ -176,7 +176,7 @@ export function MockShop({ morph, price, was, watch, showMarkup = true }: MockSh
         >
           Stoneware mug, speckled
         </div>
-        <div className="absolute text-[2cqw] text-[#8a8178]" style={box('rating', morph)}>
+        <div className="absolute text-[2cqw] text-[#6f675f]" style={box('rating', morph)}>
           <span className="text-[#c9a227]">★★★★☆</span> 128 reviews
         </div>
         <div
@@ -192,7 +192,7 @@ export function MockShop({ morph, price, was, watch, showMarkup = true }: MockSh
         </div>
         {was ? (
           <div
-            className="absolute text-[2.2cqw] text-[#8a8178]"
+            className="absolute text-[2.2cqw] text-[#6f675f]"
             style={{ ...box('was', morph), textAlign: morph > 0.5 ? 'right' : 'left' }}
           >
             was <s>{formatMoney(was)}</s> ·{' '}

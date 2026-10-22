@@ -16,7 +16,8 @@
   --ink: oklch(0.235 0.022 225);
   --ink-2: oklch(0.47 0.02 225);
   --copper: oklch(0.68 0.135 55);
-  --copper-deep: oklch(0.5 0.125 45);
+  /* Measured: 4.9:1 even on the strongest card tint, 6.7:1 on paper. */
+  --copper-deep: oklch(0.47 0.125 45);
   --on-copper: oklch(0.235 0.022 225);
   --verdigris: oklch(0.7 0.09 180);
   --verdigris-deep: oklch(0.48 0.075 185);

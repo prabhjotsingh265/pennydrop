@@ -9,7 +9,7 @@ TOOLS := $(COMPOSE) run --rm --no-deps tools
 
 .DEFAULT_GOAL := help
 
-.PHONY: help setup up down restart build logs shell pnpm install migrate seed replay demo check test test-browser lint format
+.PHONY: help setup up down restart build logs shell pnpm install migrate seed replay demo check test test-browser e2e lint format
 
 help: ## List the available commands
 	@grep -E '^[a-z-]+:.*## ' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*## "}; {printf "  make %-10s %s\n", $$1, $$2}'
@@ -70,6 +70,14 @@ test: ## Run every test suite
 
 test-browser: ## Run the tests that need a real Chromium
 	$(COMPOSE) run --rm --no-deps browser pnpm --filter @pennydrop/fetcher test:browser
+
+# On the web container's own network, so the page's origin is http://localhost:3000, the one the
+# API trusts. Every local visitor shares one address, so the demo's count for it is cleared first.
+e2e: ## Run the end-to-end tests against the running app (make up first)
+	$(COMPOSE) exec -T redis sh -c 'redis-cli --scan --pattern "pennydrop:limit:POST:/api/demo:*" | while IFS= read -r k; do redis-cli del "$$k" >/dev/null; done'
+	docker run --rm --network container:$$($(COMPOSE) ps -q web) --user $$(id -u):$$(id -g) \
+		-v "$(CURDIR)":/app -v pennydrop_pnpm-store:/pnpm-store -w /app -e HOME=/tmp \
+		pennydrop-browser:dev pnpm --filter @pennydrop/e2e e2e
 
 lint: ## Lint every package
 	$(TOOLS) pnpm lint

@@ -18,7 +18,8 @@ describe('proximityTint', () => {
 
   it('uses the reached stop at or below the target', () => {
     expect(proximityTint(0, 'light')).toBe(proximityTint(-0.4, 'light'));
-    expect(lightness(proximityTint(-0.1, 'light'))).toBeCloseTo(0.865);
+    // Light enough that grey text on it still reaches 4.5:1 (measured: 4.62).
+    expect(lightness(proximityTint(-0.1, 'light'))).toBeCloseTo(0.88);
   });
 
   it('blends between neighbouring stops', () => {

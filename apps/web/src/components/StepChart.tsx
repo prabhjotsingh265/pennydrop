@@ -234,7 +234,8 @@ export function StepChart({
         <svg
           width={width}
           height={height}
-          role="img"
+          // A chart with a target to drag holds a control, so it's a group, not an image.
+          role={onTargetChange ? 'group' : 'img'}
           aria-label={label}
           className="block overflow-visible"
         >

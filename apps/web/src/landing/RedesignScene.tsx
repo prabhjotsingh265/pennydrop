@@ -270,8 +270,10 @@ function Panel({ p }: { p: number }) {
             <li key={strategy.name} className="flex min-w-0 items-center gap-3 py-2">
               <StatusIcon status={strategy.status} />
               <span
-                className="w-32 shrink-0 text-[13px] font-medium"
-                style={{ opacity: strategy.status === 'idle' ? 0.45 : 1 }}
+                className={`w-32 shrink-0 text-[13px] font-medium ${
+                  // Greyed with a text colour, not opacity, so it still reads at 4.5:1.
+                  strategy.status === 'idle' ? 'text-ink-2' : ''
+                }`}
               >
                 {strategy.name}
               </span>

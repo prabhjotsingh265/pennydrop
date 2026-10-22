@@ -4,3 +4,6 @@ coverage/
 .turbo/
 **/fixtures/
 **/src/generated/
+**/test-results/
+**/playwright-report/
+**/.auth/

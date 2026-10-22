@@ -12,7 +12,8 @@ const RAMP: Record<Theme, ReadonlyArray<readonly [number, Oklch]>> = {
     [0.3, [0.955, 0.012, 225]],
     [0.15, [0.945, 0.035, 85]],
     [0.05, [0.915, 0.05, 62]],
-    [0, [0.865, 0.08, 52]],
+    // At or under target: as copper as it can be with grey text on it still at 4.5:1.
+    [0, [0.88, 0.075, 52]],
   ],
   dark: [
     [0.3, [0.235, 0.02, 225]],

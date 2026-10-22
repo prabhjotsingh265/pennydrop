@@ -65,7 +65,10 @@ export function CheckRow({ check, now, currency, moment, scale, product }: RowPr
   return (
     <li className={product ? 'pt-3' : ''}>
       {product && (
-        <Link to={product.href} className="text-sm font-medium hover:text-copper-deep">
+        <Link
+          to={product.href}
+          className="inline-flex min-h-6 items-center text-sm font-medium hover:text-copper-deep"
+        >
           {product.label}
         </Link>
       )}

@@ -178,7 +178,7 @@ export function ComparePage() {
                         <td className="py-2.5 pr-4">
                           <Link
                             to={`/app/p/${w.id}`}
-                            className="inline-flex items-center gap-2 hover:text-copper-deep"
+                            className="inline-flex min-h-6 items-center gap-2 hover:text-copper-deep"
                           >
                             <span
                               className="size-2.5 shrink-0 rounded-full"
