@@ -1,6 +1,7 @@
 import {
   compose,
   composeSummary,
+  emailHtml,
   inWindow,
   judge,
   nextLocalTime,
@@ -346,6 +347,17 @@ async function channelFailed(deps: SenderDeps, channelId: string, error: string)
         to: user.email,
         subject: `Your “${channel.name}” alerts have stopped working`,
         text: `Hello ${user.name},\n\nPennydrop couldn’t deliver to “${channel.name}” three times in a row. The last answer was:\n${error}\n\nAlerts to it are paused. Your other channels carry on. Fix the address, then press “Send a test” to switch it back on:\n${deps.appUrl}/app/channels\n`,
+        html: emailHtml({
+          preheader: `Three deliveries to “${channel.name}” failed in a row.`,
+          heading: `Your “${channel.name}” alerts have stopped`,
+          paragraphs: [
+            `Hello ${user.name}, Pennydrop couldn’t deliver to “${channel.name}” three times in a row, so alerts to it are paused. Your other channels carry on.`,
+            `The last answer was: ${error}`,
+            'Fix the address, then press “Send a test” to switch it back on.',
+          ],
+          button: { label: 'Open Alert channels', href: `${deps.appUrl}/app/channels` },
+          footer: 'You get this because you own this Pennydrop workspace.',
+        }),
       })
       .catch(() => {});
   }

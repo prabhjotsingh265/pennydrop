@@ -143,6 +143,7 @@ export async function alertRoutes(app: FastifyInstance, { db, config, mail }: Al
     });
     const message = compose({
       demo: isDemo,
+      test: true,
       alertId: `test-${channel.id}`,
       label: 'A test from Pennydrop',
       host: 'pennydrop',

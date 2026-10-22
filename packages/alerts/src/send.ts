@@ -60,7 +60,12 @@ export async function send(
 ): Promise<SendResult> {
   if (settings.kind === 'email') {
     try {
-      await deps.mail({ to: settings.address, subject: message.subject, text: message.text });
+      await deps.mail({
+        to: settings.address,
+        subject: message.subject,
+        text: message.text,
+        html: message.html,
+      });
       return { ok: true };
     } catch (error) {
       return { ok: false, permanent: false, error: (error as Error).message };

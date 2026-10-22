@@ -4,7 +4,7 @@ import { betterAuth } from 'better-auth';
 import { prismaAdapter } from 'better-auth/adapters/prisma';
 import { anonymous } from 'better-auth/plugins';
 import type { Config } from './config.ts';
-import { channelKey, hintFor, seal, type Mailer } from '@pennydrop/alerts';
+import { channelKey, emailHtml, hintFor, seal, type Mailer } from '@pennydrop/alerts';
 
 const DAY = 86_400;
 
@@ -50,6 +50,15 @@ export function createAuth({ db, mail, config }: { db: Db; mail: Mailer; config:
           to: user.email,
           subject: 'Reset your Pennydrop password',
           text: `Hello ${user.name},\n\nChoose a new password here (the link works for an hour):\n${url}\n\nIf you didn’t ask for this, you can ignore it: your password stays as it is.`,
+          html: emailHtml({
+            preheader: 'Choose a new password: the link works for an hour.',
+            heading: 'Reset your password',
+            paragraphs: [
+              `Hello ${user.name}, choose a new password with this button. It works for an hour.`,
+            ],
+            button: { label: 'Choose a new password', href: url },
+            footer: 'If you didn’t ask for this, you can ignore it: your password stays as it is.',
+          }),
         });
       },
       // A new password signs out everywhere else: a stolen session dies with the old one.
@@ -63,6 +72,13 @@ export function createAuth({ db, mail, config }: { db: Db; mail: Mailer; config:
           to: user.email,
           subject: 'Confirm your email for Pennydrop',
           text: `Hello ${user.name},\n\nConfirm your email to start watching prices:\n${url}\n\nIf you didn’t sign up, you can ignore this.`,
+          html: emailHtml({
+            preheader: 'One click and you can start watching prices.',
+            heading: 'Confirm your email',
+            paragraphs: [`Hello ${user.name}, confirm your email to start watching prices.`],
+            button: { label: 'Confirm my email', href: url },
+            footer: 'If you didn’t sign up for Pennydrop, you can ignore this.',
+          }),
         });
       },
     },

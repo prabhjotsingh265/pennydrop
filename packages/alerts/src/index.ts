@@ -27,3 +27,4 @@ export {
   type Reasons,
 } from './messages.ts';
 export { send, type SendDeps, type SendResult } from './send.ts';
+export { emailHtml, escapeHtml, type EmailParts } from './html.ts';

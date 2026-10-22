@@ -21,6 +21,20 @@ describe('createMailer', () => {
     });
   });
 
+  it('sends the HTML beside the text', async () => {
+    const fetch = vi.fn(async () => new Response('{}'));
+    vi.stubGlobal('fetch', fetch);
+    await createMailer({ ...settings, mailpitUrl: 'http://mailpit:8025' })({
+      ...email,
+      html: '<p>Hi there</p>',
+    });
+    const [, init] = fetch.mock.calls[0] as unknown as [string, RequestInit];
+    expect(JSON.parse(init.body as string)).toMatchObject({
+      Text: 'Hi there',
+      HTML: '<p>Hi there</p>',
+    });
+  });
+
   it('prefers Resend when it has a key, and says when it was refused', async () => {
     const fetch = vi.fn(async () => new Response('{}', { status: 422 }));
     vi.stubGlobal('fetch', fetch);
