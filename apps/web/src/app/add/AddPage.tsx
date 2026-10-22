@@ -20,6 +20,7 @@ import { Button, buttonClass } from '../../ui/Button.tsx';
 import { Field } from '../../ui/Field.tsx';
 import { Notice } from '../../ui/Notice.tsx';
 import { PreviewProgress } from './PreviewProgress.tsx';
+import { BulkAdd } from './BulkAdd.tsx';
 import { ChoiceList, ScreenshotFrame } from './ScreenshotPicker.tsx';
 
 /** Outcomes where the shop may simply be having a bad moment: saving and trying later makes sense. */
@@ -322,17 +323,46 @@ function Preview({ preview, onRestart }: { preview: Previewing; onRestart: () =>
 
 export function AddPage() {
   const [preview, setPreview] = useState<Previewing | null>(null);
+  const [many, setMany] = useState(false);
   return (
     <>
-      <div className="mb-8 flex items-baseline justify-between gap-4">
+      <div className="mb-8 flex flex-wrap items-baseline justify-between gap-4">
         <h1 className="text-[28px] leading-tight font-semibold [font-stretch:108%]">
-          Add a product
+          {many ? 'Add several products' : 'Add a product'}
         </h1>
-        <Link to="/app" className={buttonClass('quiet')}>
-          Cancel
-        </Link>
+        <div className="flex items-center gap-3">
+          {!preview && (
+            <div
+              className="flex rounded-[8px] border border-line p-0.5"
+              role="group"
+              aria-label="How many"
+            >
+              {[
+                { label: 'One address', value: false },
+                { label: 'Several at once', value: true },
+              ].map((option) => (
+                <button
+                  key={option.label}
+                  type="button"
+                  aria-pressed={many === option.value}
+                  onClick={() => setMany(option.value)}
+                  className={`rounded-[6px] px-3 py-1 text-[13px] transition ${
+                    many === option.value ? 'bg-ink text-paper' : 'text-ink-2 hover:text-ink'
+                  }`}
+                >
+                  {option.label}
+                </button>
+              ))}
+            </div>
+          )}
+          <Link to="/app" className={buttonClass('quiet')}>
+            Cancel
+          </Link>
+        </div>
       </div>
-      {preview ? (
+      {many ? (
+        <BulkAdd />
+      ) : preview ? (
         <Preview key={preview.id} preview={preview} onRestart={() => setPreview(null)} />
       ) : (
         <AddressForm onPreview={setPreview} />

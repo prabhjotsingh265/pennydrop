@@ -20,16 +20,18 @@ export async function previewRoutes(app: FastifyInstance, deps: PreviewRouteDeps
 
   app.post('/api/previews', async (request, reply) => {
     const { workspaceId } = request.member!;
-    const { url } = previewSchema.parse(request.body ?? {});
+    const { url, repick } = previewSchema.parse(request.body ?? {});
     const workspace = await db.workspace.findUniqueOrThrow({ where: { id: workspaceId } });
     const vetted = await vetAddress(deps, workspace, url);
     if (!vetted.ok) return reply.code(422).send({ error: vetted.error, field: vetted.field });
 
-    // Already on the watchlist: open it rather than preview it again.
-    const existing = await db.watch.findFirst({
-      where: { workspaceId, target: { canonicalUrl: vetted.url } },
-      select: { id: true },
-    });
+    // Already on the watchlist: open it rather than preview it again (unless re-picking it).
+    const existing = repick
+      ? null
+      : await db.watch.findFirst({
+          where: { workspaceId, target: { canonicalUrl: vetted.url } },
+          select: { id: true },
+        });
     if (existing) return { watchId: existing.id };
 
     const { site } = vetted;

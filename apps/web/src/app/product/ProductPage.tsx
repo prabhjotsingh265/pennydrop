@@ -24,6 +24,7 @@ import { distanceWords, trouble, waiting } from '../../lib/watchlist.ts';
 import { Button, buttonClass } from '../../ui/Button.tsx';
 import { Notice } from '../../ui/Notice.tsx';
 import { CheckLog } from './CheckLog.tsx';
+import { RepickPanel, startRepick } from './Repick.tsx';
 import { Settings } from './Settings.tsx';
 import { Timeline } from './Timeline.tsx';
 
@@ -53,6 +54,24 @@ function Product({
   const [range, setRange] = useState<RangeKey>(() => defaultRange(watch.history, Date.now()));
   const [dragTarget, setDragTarget] = useState<number | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
+  const [repick, setRepick] = useState<string | null>(null);
+  const [repicked, setRepicked] = useState(false);
+  const [opening, setOpening] = useState(false);
+  // Nothing reads its price: it waits for someone to pick it on the screenshot.
+  const needsPick =
+    watch.status === 'needs_attention' || (watch.price === null && Boolean(watch.lastCheckedAt));
+
+  const openPicker = async () => {
+    setOpening(true);
+    setNotice(null);
+    try {
+      setRepick(await startRepick(watch));
+    } catch (error) {
+      setNotice(error instanceof Error ? error.message : 'The preview didn’t start.');
+    } finally {
+      setOpening(false);
+    }
+  };
   const settle = useRef<number | undefined>(undefined);
   useEffect(() => () => window.clearTimeout(settle.current), []);
 
@@ -149,6 +168,31 @@ function Product({
       </header>
 
       {notice && <Notice tone="error">{notice}</Notice>}
+      {repicked && !repick && <Notice>Saved. It’s being read the new way now.</Notice>}
+      {repick ? (
+        <RepickPanel
+          watch={watch}
+          previewId={repick}
+          onDone={() => {
+            setRepick(null);
+            setRepicked(true);
+          }}
+          onCancel={() => setRepick(null)}
+        />
+      ) : (
+        needsPick &&
+        !repicked && (
+          <div className="flex flex-wrap items-center justify-between gap-4 rounded-[14px] border border-copper/50 bg-copper/10 p-4">
+            <p className="text-sm">
+              We can’t find this product’s price on its page. Show us which one it is, once, and
+              every check after reads it that way.
+            </p>
+            <Button variant="primary" busy={opening} onClick={() => void openPicker()}>
+              Pick it on the screenshot
+            </Button>
+          </div>
+        )
+      )}
 
       <section className="flex flex-wrap items-end justify-between gap-6">
         {watch.price !== null ? (
@@ -268,6 +312,20 @@ function Product({
         <Timeline events={events} now={now} moment={words.moment} />
         <CheckLog checks={checks.data ?? []} now={now} currency={currency} moment={words.moment} />
       </div>
+
+      {!needsPick && !repick && (
+        <p className="text-sm text-ink-2">
+          Reading the wrong price?{' '}
+          <button
+            type="button"
+            disabled={opening}
+            onClick={() => void openPicker()}
+            className="text-copper-deep underline"
+          >
+            Pick it on the screenshot
+          </button>
+        </p>
+      )}
 
       <Settings
         watch={watch}

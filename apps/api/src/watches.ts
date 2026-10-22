@@ -1,7 +1,10 @@
 import { GONE_FOR_GOOD_STREAK, Prisma, syncTarget, type Db } from '@pennydrop/db';
 import {
   addWatchSchema,
+  bulkAddSchema,
+  pickSchema,
   updateWatchSchema,
+  type BulkResult,
   type CheckSummary,
   type WatchDetail,
   type WatchStatus,
@@ -161,47 +164,39 @@ export async function watchRoutes(app: FastifyInstance, deps: WatchDeps) {
     return { watches: await summarise(db, rows, recent()) };
   });
 
-  app.post('/api/watches', async (request, reply) => {
-    const { workspaceId } = request.member!;
-    const input = addWatchSchema.parse(request.body ?? {});
+  interface NewWatch {
+    address: string;
+    label?: string;
+    targetPrice?: number;
+    intervalSeconds: number;
+    /** A selector someone picked on a preview, to become the site's way to read its price. */
+    picked?: string | null;
+    needsBrowser?: boolean;
+    title?: string | null;
+  }
+  type Added =
+    { ok: true; id: string; created: boolean } | { ok: false; field: string; error: string };
+  interface Workspace {
+    id: string;
+    isDemo: boolean;
+    maxWatches: number;
+    /** Counted as products are added, so a bulk add stops at the limit too. */
+    watches: number;
+  }
 
-    // From a preview: save the page where it ended up, read the way that was picked.
-    let address = input.url;
-    let picked: string | null = null;
-    let needsBrowser = false;
-    let title: string | null = null;
-    if (input.preview) {
-      const preview = await deps.previews.get(input.preview.id, workspaceId);
-      const result = preview?.status === 'done' ? preview.result : null;
-      if (!preview || !result) {
-        return refuse(reply, 'preview', 'That preview has expired. Open the address again.');
-      }
-      const asked = cleanUrl(input.url);
-      if (!asked.ok || asked.url !== preview.url) {
-        return refuse(reply, 'preview', 'That preview was for a different address.');
-      }
-      const choice = result.choices[input.preview.choice];
-      if (!choice) return refuse(reply, 'preview', 'Pick one of the prices on the screenshot.');
-      if (!choice.best) picked = result.selectors[input.preview.choice] ?? null;
-      needsBrowser = result.outcome === 'ok' && result.plainHtmlWorks === false;
-      title = result.title;
-      address = result.url;
-    }
-
-    const workspace = await db.workspace.findUniqueOrThrow({
-      where: { id: workspaceId },
-      include: { _count: { select: { watches: true } } },
-    });
-    const vetted = await vetAddress(deps, workspace, address);
-    if (!vetted.ok) return refuse(reply, vetted.field, vetted.error);
+  /** Adds one product to a workspace: the same rules for one address or fifty. */
+  async function addWatch(workspace: Workspace, input: NewWatch): Promise<Added> {
+    const vetted = await vetAddress(deps, workspace, input.address);
+    if (!vetted.ok) return vetted;
     const { site, url } = vetted;
     if (input.intervalSeconds < SHORTEST_REAL_INTERVAL && !site.demoAllowed) {
-      return refuse(
-        reply,
-        'intervalSeconds',
-        'Every 15 minutes is for the practice shops. Real shops are checked hourly at most.',
-      );
+      return {
+        ok: false,
+        field: 'intervalSeconds',
+        error: 'Every 15 minutes is for the practice shops. Real shops are checked hourly at most.',
+      };
     }
+    const title = input.title ?? null;
 
     const save = () =>
       db.$transaction(async (tx) => {
@@ -217,22 +212,22 @@ export async function watchRoutes(app: FastifyInstance, deps: WatchDeps) {
           },
         });
         const existing = await tx.watch.findUnique({
-          where: { workspaceId_targetId: { workspaceId, targetId: target.id } },
+          where: { workspaceId_targetId: { workspaceId: workspace.id, targetId: target.id } },
         });
-        if (!existing && workspace._count.watches >= workspace.maxWatches) return null;
+        if (!existing && workspace.watches >= workspace.maxWatches) return null;
 
         if (title && !target.title) {
           await tx.target.update({ where: { id: target.id }, data: { title } });
         }
-        if (needsBrowser && !site.needsBrowser) {
+        if (input.needsBrowser && !site.needsBrowser) {
           await tx.site.update({ where: { id: site.id }, data: { needsBrowser: true } });
         }
-        if (picked) await usePick(tx, site.id, target.id, picked);
+        if (input.picked) await usePick(tx, site.id, target.id, input.picked);
         if (existing) return { id: existing.id, created: false };
 
         const watch = await tx.watch.create({
           data: {
-            workspaceId,
+            workspaceId: workspace.id,
             targetId: target.id,
             label: input.label || null,
             targetPrice: input.targetPrice === undefined ? null : BigInt(input.targetPrice),
@@ -247,19 +242,121 @@ export async function watchRoutes(app: FastifyInstance, deps: WatchDeps) {
       if (isConflict(error)) return save();
       throw error;
     });
-
     if (!saved) {
-      return refuse(
-        reply,
-        'url',
-        `This workspace can watch up to ${workspace.maxWatches} products.`,
+      return {
+        ok: false,
+        field: 'url',
+        error: `This workspace can watch up to ${workspace.maxWatches} products.`,
+      };
+    }
+    if (saved.created) workspace.watches++;
+    return { ok: true, ...saved };
+  }
+
+  async function workspaceOf(workspaceId: string): Promise<Workspace> {
+    const workspace = await db.workspace.findUniqueOrThrow({
+      where: { id: workspaceId },
+      include: { _count: { select: { watches: true } } },
+    });
+    return { ...workspace, watches: workspace._count.watches };
+  }
+
+  /** A finished preview of this workspace's, or why it can't be used. */
+  async function finishedPreview(workspaceId: string, previewId: string, address: string) {
+    const preview = await deps.previews.get(previewId, workspaceId);
+    const result = preview?.status === 'done' ? preview.result : null;
+    if (!preview || !result) {
+      return { ok: false, error: 'That preview has expired. Open the address again.' } as const;
+    }
+    const asked = cleanUrl(address);
+    if (!asked.ok || asked.url !== preview.url) {
+      return { ok: false, error: 'That preview was for a different address.' } as const;
+    }
+    return { ok: true, result } as const;
+  }
+
+  app.post('/api/watches', async (request, reply) => {
+    const { workspaceId } = request.member!;
+    const input = addWatchSchema.parse(request.body ?? {});
+
+    // From a preview: save the page where it ended up, read the way that was picked.
+    const fromPreview: Partial<NewWatch> = { address: input.url };
+    if (input.preview) {
+      const preview = await finishedPreview(workspaceId, input.preview.id, input.url);
+      if (!preview.ok) return refuse(reply, 'preview', preview.error);
+      const { result } = preview;
+      const choice = result.choices[input.preview.choice];
+      if (!choice) return refuse(reply, 'preview', 'Pick one of the prices on the screenshot.');
+      fromPreview.picked = choice.best ? null : (result.selectors[input.preview.choice] ?? null);
+      fromPreview.needsBrowser = result.outcome === 'ok' && result.plainHtmlWorks === false;
+      fromPreview.title = result.title;
+      fromPreview.address = result.url;
+    }
+
+    const added = await addWatch(await workspaceOf(workspaceId), {
+      address: input.url,
+      ...fromPreview,
+      label: input.label,
+      targetPrice: input.targetPrice,
+      intervalSeconds: input.intervalSeconds,
+    });
+    if (!added.ok) return refuse(reply, added.field, added.error);
+    if (added.created || fromPreview.picked) await wake();
+    if (added.created) await deps.publish({ type: 'watches', workspaceId });
+    return reply
+      .code(added.created ? 201 : 200)
+      .send({ watch: await summaryOf(added.id, recent()), created: added.created });
+  });
+
+  // Up to fifty at once. Each line is vetted and added like a single one, and checked
+  // straight away; any whose price can't be read wait for someone to pick it.
+  app.post('/api/watches/bulk', async (request) => {
+    const { workspaceId } = request.member!;
+    const input = bulkAddSchema.parse(request.body ?? {});
+    const workspace = await workspaceOf(workspaceId);
+    const results: BulkResult[] = [];
+    // One line at a time: lines on the same shop would otherwise race to record it.
+    for (const item of input.items) {
+      const added = await addWatch(workspace, {
+        address: item.url,
+        label: item.label,
+        targetPrice: item.targetPrice,
+        intervalSeconds: input.intervalSeconds,
+      });
+      results.push(
+        added.ok
+          ? { url: item.url, ok: true, watchId: added.id, created: added.created }
+          : { url: item.url, ok: false, error: added.error },
       );
     }
-    if (saved.created || picked) await wake();
-    if (saved.created) await deps.publish({ type: 'watches', workspaceId });
-    return reply
-      .code(saved.created ? 201 : 200)
-      .send({ watch: await summaryOf(saved.id, recent()), created: saved.created });
+    if (results.some((result) => result.ok && result.created)) {
+      await wake();
+      await deps.publish({ type: 'watches', workspaceId });
+    }
+    return { results };
+  });
+
+  // Picking the price again: when nothing could find it, or the automatic pick was wrong.
+  app.post('/api/watches/:id/pick', async (request, reply) => {
+    const row = await find(request.member!.workspaceId, request.params);
+    if (!row) return notFound(reply);
+    const { preview: picked } = pickSchema.parse(request.body ?? {});
+    const preview = await finishedPreview(row.workspaceId, picked.id, row.target.url);
+    if (!preview.ok) return refuse(reply, 'preview', preview.error);
+    const { result } = preview;
+    const selector = result.selectors[picked.choice];
+    if (!selector) return refuse(reply, 'preview', 'Pick one of the prices on the screenshot.');
+
+    await db.$transaction(async (tx) => {
+      if (result.outcome === 'ok' && result.plainHtmlWorks === false) {
+        await tx.site.update({ where: { id: row.target.siteId }, data: { needsBrowser: true } });
+      }
+      // A deliberate choice, so it's saved even when it matches the automatic pick.
+      await usePick(tx, row.target.siteId, row.targetId, selector);
+    });
+    await wake();
+    await deps.publish({ type: 'watches', workspaceId: row.workspaceId });
+    return { watch: await summaryOf(row.id, recent()) };
   });
 
   app.get('/api/watches/:id', async (request, reply) => {

@@ -11,13 +11,16 @@ export const intervalSchema = z.union(
 /** Minor units: whole pence, cents, paise. */
 const money = z.number().int().positive().max(1e13);
 
+/** A preview, and which of the prices on its screenshot was picked. */
+const pickedSchema = z.strictObject({ id: z.uuid(), choice: z.number().int().min(0).max(100) });
+
 export const addWatchSchema = z.strictObject({
   url: z.string().trim().min(1).max(2_000),
   label: z.string().trim().max(120).optional(),
   targetPrice: money.optional(),
   intervalSeconds: intervalSchema.default(DEFAULT_INTERVAL),
   /** The preview it was added from, and which of its prices was picked. */
-  preview: z.strictObject({ id: z.uuid(), choice: z.number().int().min(0).max(100) }).optional(),
+  preview: pickedSchema.optional(),
 });
 export type AddWatchInput = z.input<typeof addWatchSchema>;
 
@@ -30,7 +33,37 @@ export const updateWatchSchema = z.strictObject({
 });
 export type UpdateWatchInput = z.input<typeof updateWatchSchema>;
 
-export const previewSchema = z.strictObject({ url: z.string().trim().min(1).max(2_000) });
+export const previewSchema = z.strictObject({
+  url: z.string().trim().min(1).max(2_000),
+  /** For a product already on the watchlist whose price is being picked again. */
+  repick: z.boolean().optional(),
+});
+
+/** Picking the price again on a product already watched. */
+export const pickSchema = z.strictObject({ preview: pickedSchema });
+
+/** The most addresses one bulk add takes. */
+export const BULK_MAX = 50;
+
+export const bulkAddSchema = z.strictObject({
+  items: z
+    .array(
+      z.strictObject({
+        url: z.string().trim().min(1).max(2_000),
+        label: z.string().trim().max(120).optional(),
+        targetPrice: money.optional(),
+      }),
+    )
+    .min(1)
+    .max(BULK_MAX),
+  intervalSeconds: intervalSchema.default(DEFAULT_INTERVAL),
+});
+export type BulkAddInput = z.input<typeof bulkAddSchema>;
+
+/** How one line of a bulk add went. */
+export type BulkResult =
+  | { url: string; ok: true; watchId: string; created: boolean }
+  | { url: string; ok: false; error: string };
 
 export type WatchStatus = 'active' | 'needs_attention' | 'blocked' | 'gone' | 'paused';
 
