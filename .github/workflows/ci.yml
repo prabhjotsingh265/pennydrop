@@ -100,3 +100,82 @@ jobs:
 
       - name: Browser tests
         run: pnpm --filter @pennydrop/fetcher test:browser
+
+  # The whole app, started from source and driven by Playwright: the demo, adding a product,
+  # and axe on every page, at desktop and phone sizes.
+  e2e:
+    runs-on: ubuntu-latest
+    container:
+      image: mcr.microsoft.com/playwright:v1.63.0-noble
+
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_DB: pennydrop
+          POSTGRES_USER: pennydrop
+          POSTGRES_PASSWORD: secret
+        options: >-
+          --health-cmd "pg_isready -U pennydrop -d pennydrop"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+      redis:
+        image: redis:8.2-alpine
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    env:
+      DATABASE_URL: postgresql://pennydrop:secret@postgres:5432/pennydrop
+      REDIS_URL: redis://redis:6379
+      # The practice shops answer for *.localhost, here on this machine.
+      LOCAL_SHOP_HOST: 127.0.0.1
+      API_ORIGIN: http://127.0.0.1:3001
+      COREPACK_ENABLE_DOWNLOAD_PROMPT: 0
+      TURBO_TELEMETRY_DISABLED: 1
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Install packages
+        run: |
+          corepack enable
+          pnpm install --frozen-lockfile
+
+      - name: Database
+        run: pnpm --filter @pennydrop/db migrate
+
+      - name: Start Pennydrop
+        run: |
+          mkdir -p logs
+          start() { name=$1; shift; nohup "$@" > "logs/$name.log" 2>&1 & }
+          start shop pnpm --filter @pennydrop/shop exec tsx src/server.ts
+          start api pnpm --filter @pennydrop/api exec tsx src/server.ts
+          start worker pnpm --filter @pennydrop/worker exec tsx src/main.ts
+          start fetch-http env FETCHER_LANE=http pnpm --filter @pennydrop/fetcher exec tsx src/main.ts
+          start fetch-browser env FETCHER_LANE=browser pnpm --filter @pennydrop/fetcher exec tsx src/main.ts
+          start web pnpm --filter @pennydrop/web exec vite
+          for url in http://127.0.0.1:4000/robots.txt http://127.0.0.1:3001/api/health http://127.0.0.1:3000/; do
+            node -e "
+              const until = Date.now() + 90_000;
+              const look = () => fetch('$url').then((r) => r.ok ? process.exit(0) : Promise.reject())
+                .catch(() => Date.now() < until ? setTimeout(look, 1000) : process.exit(1));
+              look();" || { echo "$url never answered"; exit 1; }
+          done
+
+      - name: The demo's showcase
+        run: pnpm --filter @pennydrop/worker demo --days 1 --wait
+
+      - name: End-to-end tests
+        run: pnpm --filter @pennydrop/e2e e2e
+
+      - name: Logs, when something failed
+        if: failure()
+        run: tail -n 60 logs/*.log

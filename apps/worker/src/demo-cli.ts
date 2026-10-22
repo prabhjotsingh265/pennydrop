@@ -8,9 +8,13 @@ import { REPLAY_DAYS, startReplay } from './replay.ts';
 // The demo's showcase: the products every demo watches, kept checked by a
 // "Showcase" workspace nobody signs in to, with their history replayed. The
 // mug is there too: each visitor's sandbox starts from its price. Run again,
-// it adds only what's missing. Usage: demo [--days 60]
+// it adds only what's missing. Usage: demo [--days 60] [--wait]
+// --wait returns once every showcase product has a price: demos start from them.
 const { values } = parseArgs({
-  options: { days: { type: 'string', default: String(REPLAY_DAYS) } },
+  options: {
+    days: { type: 'string', default: String(REPLAY_DAYS) },
+    wait: { type: 'boolean', default: false },
+  },
 });
 const days = Number(values.days);
 const template =
@@ -33,8 +37,10 @@ const pages = [
   practiceUrl(template, 'fickle', `/p/${SANDBOX_PRODUCT}`),
 ];
 let total = 0;
+const targetIds: string[] = [];
 for (const url of pages) {
   const target = await practiceTarget(db, url);
+  targetIds.push(target.id);
   await db.watch.upsert({
     where: { workspaceId_targetId: { workspaceId: showcase.id, targetId: target.id } },
     update: {},
@@ -53,6 +59,20 @@ console.log(
       ? ` ${total} readings are replaying in the background, about one a second per shop.`
       : ''),
 );
+if (values.wait) {
+  // Checked as soon as their replays end (seconds for a day or two of history).
+  const until = Date.now() + 5 * 60_000;
+  let priced = 0;
+  while (Date.now() < until) {
+    priced = await db.target.count({
+      where: { id: { in: targetIds }, currentPrice: { not: null } },
+    });
+    if (priced === targetIds.length) break;
+    await new Promise((resolve) => setTimeout(resolve, 2_000));
+  }
+  console.log(`${priced} of ${targetIds.length} showcase products have a price.`);
+  if (priced < targetIds.length) process.exitCode = 1;
+}
 await http.close();
 await db.$disconnect();
 await connection.quit();
