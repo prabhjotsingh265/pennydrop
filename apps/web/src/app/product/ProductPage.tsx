@@ -19,13 +19,14 @@ import {
 } from '../../lib/chart.ts';
 import { chartFlag, isGoodOutcome } from '../../lib/events.ts';
 import { formatMoney } from '../../lib/money.ts';
-import { useChecks, useMe, useWatch, useWatchActions } from '../../lib/queries.ts';
+import { useChecks, useDemo, useMe, useWatch, useWatchActions } from '../../lib/queries.ts';
 import { ago, dateWords, every, targetStep, useNow } from '../../lib/time.ts';
 import { patina } from '../../lib/tint.ts';
 import { distanceWords, trouble, waiting } from '../../lib/watchlist.ts';
 import { Button, buttonClass } from '../../ui/Button.tsx';
 import { Notice } from '../../ui/Notice.tsx';
 import { AlertRules } from './AlertRules.tsx';
+import { BreakShop } from './BreakShop.tsx';
 import { CheckLog } from './CheckLog.tsx';
 import { DiscountPanel } from './DiscountPanel.tsx';
 import { GroupControl } from './GroupControl.tsx';
@@ -55,6 +56,8 @@ function Product({
   const words = dateWords(me.workspace.timezone);
   const checks = useChecks(id, eager);
   const actions = useWatchActions(id);
+  // In a demo, the product on the visitor's own copy of the shop comes with its controls.
+  const sandbox = useDemo().data?.sandbox;
   const clock = useNow();
   const [range, setRange] = useState<RangeKey>(() => defaultRange(watch.history, Date.now()));
   const [dragTarget, setDragTarget] = useState<number | null>(null);
@@ -103,13 +106,16 @@ function Product({
     }, SETTLE_MS);
   };
 
+  // Look every couple of seconds for a while: a check is on its way.
+  const watchClosely = () => {
+    onEager(true);
+    window.setTimeout(() => onEager(false), EAGER_MS);
+  };
+
   const checkNow = () => {
     setNotice(null);
     actions.checkNow.mutate(undefined, {
-      onSuccess: () => {
-        onEager(true);
-        window.setTimeout(() => onEager(false), EAGER_MS);
-      },
+      onSuccess: watchClosely,
       onError: (error) => setNotice(error.message),
     });
   };
@@ -175,6 +181,7 @@ function Product({
       </header>
 
       {notice && <Notice tone="error">{notice}</Notice>}
+      {sandbox?.watchId === id && <BreakShop state={sandbox.state} onBroken={watchClosely} />}
       {repicked && !repick && <Notice>Saved. It’s being read the new way now.</Notice>}
       {repick ? (
         <RepickPanel

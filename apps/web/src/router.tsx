@@ -12,6 +12,7 @@ import { Shell } from './app/Shell.tsx';
 import { SitesPage } from './app/SitesPage.tsx';
 import { WatchlistPage } from './app/WatchlistPage.tsx';
 import { CheckEmail } from './auth/CheckEmail.tsx';
+import { DemoPage } from './auth/DemoPage.tsx';
 import { Forgot } from './auth/Forgot.tsx';
 import { Reset } from './auth/Reset.tsx';
 import { SignIn } from './auth/SignIn.tsx';
@@ -24,6 +25,7 @@ export const router = createBrowserRouter([
   { path: '/signin', element: <SignIn /> },
   { path: '/signup', element: <SignUp /> },
   { path: '/signup/sent', element: <CheckEmail /> },
+  { path: '/demo', element: <DemoPage /> },
   { path: '/forgot', element: <Forgot /> },
   { path: '/reset', element: <Reset /> },
   {

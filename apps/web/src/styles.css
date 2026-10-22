@@ -244,3 +244,13 @@
     animation: none;
   }
 }
+
+/* The demo opening: a band of copper sliding along, until the dashboard is ready. */
+@keyframes demo-load {
+  from {
+    transform: translateX(-100%);
+  }
+  to {
+    transform: translateX(300%);
+  }
+}

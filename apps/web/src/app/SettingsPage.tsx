@@ -1,5 +1,6 @@
 import { useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
+import { Link } from 'react-router';
 import { api } from '../lib/api.ts';
 import { keys, useMe } from '../lib/queries.ts';
 import {
@@ -115,8 +116,20 @@ export function SettingsPage() {
         <h2 id="account" className="text-[15px] font-semibold">
           Account
         </h2>
-        <p className="text-sm">{me.user.name}</p>
-        <p className="text-sm text-ink-2">{me.user.email}</p>
+        {me.workspace.isDemo ? (
+          <p className="text-sm text-ink-2">
+            This is a demo, with no account: it’s deleted a day after it began.{' '}
+            <Link to="/signup" className="text-copper-deep underline">
+              Create an account
+            </Link>{' '}
+            to keep watching prices.
+          </p>
+        ) : (
+          <>
+            <p className="text-sm">{me.user.name}</p>
+            <p className="text-sm text-ink-2">{me.user.email}</p>
+          </>
+        )}
       </section>
 
       <section aria-labelledby="export" className="space-y-2">
@@ -136,7 +149,7 @@ export function SettingsPage() {
         </div>
       </section>
 
-      <DeleteAccount />
+      {!me.workspace.isDemo && <DeleteAccount />}
     </div>
   );
 }

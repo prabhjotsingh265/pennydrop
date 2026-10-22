@@ -8,6 +8,7 @@ import { useLiveUpdates } from '../lib/live.ts';
 import { useMe } from '../lib/queries.ts';
 import { useTheme } from '../lib/theme.ts';
 import { buttonClass } from '../ui/Button.tsx';
+import { DemoBanner } from './DemoBanner.tsx';
 import { InboxBell } from './InboxBell.tsx';
 import { ZoneNudge } from './ZoneNudge.tsx';
 
@@ -37,7 +38,10 @@ function AccountMenu() {
       <div className="absolute right-0 z-30 mt-2 w-64 rounded-[14px] border border-line bg-paper p-2 shadow-lg shadow-ink/5">
         <div className="px-3 py-2">
           <div className="truncate text-sm font-medium">{me.user.name}</div>
-          <div className="truncate text-[13px] text-ink-2">{me.user.email}</div>
+          {/* A demo visitor's "email" is a placeholder: not worth showing. */}
+          {!me.workspace.isDemo && (
+            <div className="truncate text-[13px] text-ink-2">{me.user.email}</div>
+          )}
           <div className="tabular mt-1 text-[11px] text-ink-2">{me.workspace.name}</div>
         </div>
         <Link
@@ -101,6 +105,7 @@ function LiveMark() {
 
 export function Shell() {
   useLiveUpdates();
+  const isDemo = useMe().data?.workspace.isDemo ?? false;
   return (
     <div className="min-h-dvh">
       <header className="sticky top-0 z-20 border-b border-line bg-paper/85 backdrop-blur">
@@ -146,7 +151,8 @@ export function Shell() {
           </div>
         </div>
       </header>
-      <ZoneNudge />
+      {/* A demo lasts a day: its time zone isn't worth asking about. */}
+      {isDemo ? <DemoBanner /> : <ZoneNudge />}
       <main className="mx-auto max-w-6xl px-4 py-8 sm:px-6">
         <Outlet />
       </main>

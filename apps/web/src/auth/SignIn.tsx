@@ -107,7 +107,12 @@ export function SignIn() {
         New here?{' '}
         <Link to="/signup" className="font-medium text-copper-deep underline">
           Create an account
+        </Link>{' '}
+        or{' '}
+        <Link to="/demo" className="font-medium text-copper-deep underline">
+          try the demo
         </Link>
+        , no account needed.
       </p>
     </AuthLayout>
   );

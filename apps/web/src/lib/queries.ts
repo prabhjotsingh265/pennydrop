@@ -2,6 +2,7 @@ import type {
   AlertSummary,
   ChannelSummary,
   CheckFeed,
+  DemoState,
   GroupDetail,
   GroupSummary,
   CheckSummary,
@@ -38,6 +39,7 @@ export const keys = {
   channels: ['channels'] as const,
   alerts: ['alerts'] as const,
   unread: ['alerts', 'unread'] as const,
+  demo: ['demo'] as const,
 };
 
 export function createQueryClient() {
@@ -239,5 +241,15 @@ export function useUnread() {
     queryFn: ({ signal }) =>
       api<{ count: number }>('/api/alerts/unread', { signal }).then((data) => data.count),
     refetchInterval: poll,
+  });
+}
+
+/** A demo workspace's time left and its own shop; nothing for an ordinary workspace. */
+export function useDemo() {
+  const isDemo = useMe().data?.workspace.isDemo ?? false;
+  return useQuery({
+    queryKey: keys.demo,
+    queryFn: ({ signal }) => api<DemoState>('/api/demo', { signal }),
+    enabled: isDemo,
   });
 }
