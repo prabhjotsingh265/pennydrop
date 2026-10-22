@@ -2,16 +2,112 @@
 
 Price monitoring that notices when a shop redesigns its page, and keeps going.
 
-Work in progress. Built so far:
+![A shop redesigns its product page. Pennydrop's saved selector finds nothing; structured data, microdata and meta tags are tried in turn; heuristics find the price; a new selector is written, and the price history carries on unbroken.](docs/media/redesign.gif)
 
-| Part                                   | What it does                                                                                                                                                                                                                                                                                                                    |
-| -------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| [`packages/extract`](packages/extract) | Reads a product's price five ways (JSON-LD, microdata, meta tags, a saved selector, and heuristics that read the page like a person) and decides between them. When a shop redesigns and the saved selector breaks, it writes a new one. Parses prices as shops write them worldwide: `1.299,99 €`, `₹1,29,999`, `CHF 1'299.90` |
-| [`packages/fetch`](packages/fetch)     | Fetches pages politely and safely: robots.txt per RFC 9309, cleaned addresses, timeouts, size limits (including after decompression), and a guard that refuses private network addresses on every hop                                                                                                                           |
-| [`apps/fetcher`](apps/fetcher)         | Checks a product end to end: plain HTTP first, a real Chromium only when the price is written by JavaScript. The browser's traffic goes through a local proxy that applies the same address guard                                                                                                                               |
-| [`apps/shop`](apps/shop)               | A practice shop built to change and to break: three layouts, three personalities (healthy, slow, failing), and controls to switch them                                                                                                                                                                                          |
-| [`apps/web`](apps/web)                 | The React app; for now, the design prototype at `/prototype`                                                                                                                                                                                                                                                                    |
-| [`apps/api`](apps/api)                 | The Fastify API; for now, a health check                                                                                                                                                                                                                                                                                        |
+Paste a product's address, click its price on a screenshot, set a target. Pennydrop checks
+the page as often as the shop allows, keeps the price as the steps it really took, and tells
+you by email, Slack, Discord or a signed webhook when it drops through your target.
+
+- **Reads a price five ways:** a saved selector, the page's structured data, its microdata, its
+  meta tags, and a scorer for price-shaped text. When the selector breaks, the others find the
+  price and teach it a new one.
+- **Polite to every shop:** robots.txt and its crawl delay, one request every 10 seconds at
+  most, `Retry-After` obeyed, and a circuit breaker that leaves a struggling shop alone.
+- **Alerts that don't cry wolf:** each change alerts each channel once, however many workers see
+  it; a jump of more than half is checked twice first; a price wobbling round your target
+  alerts once.
+- **Honest history:** prices drawn as steps, never slopes; a sale's "was" price checked against
+  what the shop really charged in the 30 days before.
+- **A demo you can break:** one click, no account, and a copy of the practice shop of your own to
+  redesign, slow down, knock over or put on sale.
+
+## Break a shop, and watch it recover
+
+![The demo: pressing "Redesign the page" is followed by "The shop changed its page layout" and "Found the price another way" on the timeline; pressing "Start a sale" drops the price under the target, and a penny drops into the alerts bell.](docs/media/demo.gif)
+
+The demo gives every visitor products with weeks of history and a practice shop of their own.
+Measured locally, from opening the sign-in page: the redesign is healed on the timeline at
+1.6 s, and the sale's alert drops into the bell at 3.5 s.
+
+## The hard parts
+
+### A page that changes its layout
+
+Selectors break when shops redesign, and most monitors go quiet when they do. Pennydrop reads
+every page every way it can and compares the answers. When the saved selector finds nothing but
+another strategy finds the price on a product it has read before, it writes a new selector for
+the whole site, records "layout changed" on the timeline, and the history doesn't break. A page
+that lists many products (four or more prices built the same way, and no buy button) is never
+mistaken for one, and never teaches the site a selector.
+
+### One broken shop can't hold up the rest
+
+![The System page's lanes: one per site. Checks run as dots from fetch to extract to save; Brittle and Slowpoke are hatched behind open circuit breakers with their skipped checks parked, while Fickle's checks keep flowing.](docs/media/lanes.gif)
+
+Each site has its own gate in Redis (a minimum gap, and at most so many requests at once) and its
+own circuit breaker. A worker that would have to wait for a site puts the job back for exactly
+that long and takes another site's, rather than sleeping on a slot. A test proves it: 30 checks
+of a healthy shop take 3.3–3.6 s alone, and 4.0–4.3 s beside a shop that hangs and another that
+fails every time, with all 30 succeeding while the other two are left to their breakers.
+
+### Alerts exactly once
+
+A product's alert rules are locked while a new price is judged, and a product gets at most one
+alert per price, so ten workers on the same price make one alert and one delivery per channel (a
+test runs exactly that). Every delivery is its own job, retried after 1, 3, 8, 15 and 30 minutes;
+a revoked webhook fails at once, and three failures in a row mark the channel broken and tell its
+owner once. Quiet hours, a daily summary and an hourly cap hold alerts back and send them together.
+
+### A fetcher that can't be turned against you
+
+A price monitor fetches whatever address it's given, which makes it a way into private networks
+unless it's careful. Every hop is checked: only http(s), only the usual ports, and after every DNS
+lookup, never a private, loopback or link-local address, on redirects too. The browser's traffic
+goes through a local proxy that applies the same guard. The fetchers have no route to the
+database at all.
+
+### History that tells the truth
+
+Prices are stored as change points and drawn as steps; nothing is drawn before the first reading.
+The demo's history is replayed from the practice shop's own past pages, through the real fetch
+and extraction, and is drawn lighter and labelled "replayed", so nothing passes for an observation
+it wasn't.
+
+## How it fits together
+
+```mermaid
+flowchart LR
+  web["Web app<br/>React"] -->|/api| api["API<br/>Fastify + Better Auth"]
+  api --> pg[("PostgreSQL")]
+  api --> redis[("Redis")]
+  worker["Worker<br/>schedule, record, alert"] --> pg
+  worker --> redis
+  redis --> http["Fetcher<br/>plain HTTP"]
+  redis --> browser["Fetcher<br/>Chromium"]
+  http --> shops["Shops"]
+  browser --> shops
+  worker --> out["Email, Slack,<br/>Discord, webhooks"]
+```
+
+- **PostgreSQL owns the schedule.** A dispatcher claims due products every 15 seconds and queues
+  their checks; Redis only holds the work in hand. A product page several people watch is checked
+  once, at the shortest interval anyone asked for.
+- **Plain HTTP first.** A browser check costs about 33 times as long and 400 MB of memory, so
+  Chromium is used only when the price is written by JavaScript.
+- **Live dashboards.** When a check lands, the worker says so on a Redis channel, and each API
+  process tells the dashboards that watch that page, over Server-Sent Events.
+
+## Built with
+
+| Part     | What                                                                     |
+| -------- | ------------------------------------------------------------------------ |
+| App      | React 19, Vite 7, React Router 7, TanStack Query 5, Tailwind 4, GSAP     |
+| API      | Fastify 5, Better Auth 1.7, Zod 4                                        |
+| Data     | PostgreSQL 17 with Prisma 7, Redis 8.2 with BullMQ 5                     |
+| Fetching | undici, Playwright 1.63 (Chromium)                                       |
+| Practice | Express 5: one shop that answers as three, built to change and to break  |
+| Tests    | Vitest 4, fast-check, Playwright Test with axe                           |
+| Tooling  | Node 24, TypeScript 6, pnpm 10, Turborepo, ESLint 10, Prettier 3, Docker |
 
 ## Run it locally
 
@@ -19,11 +115,14 @@ Everything runs in Docker, so Docker is the only thing to install.
 
 ```sh
 make setup   # first time: build, install packages, start everything
+make seed    # the practice shops' products, to watch the pipeline work
+make demo    # the demo's showcase, with 60 days of replayed history
 make up      # start
 make down    # stop
-make check   # formatting, lint, type checks and tests, as CI runs them
 make help    # every command
 ```
+
+Then open <http://localhost:3000> and press **Try the demo**.
 
 | Address                          | What's there                                        |
 | -------------------------------- | --------------------------------------------------- |
@@ -35,3 +134,36 @@ make help    # every command
 | <http://brittle.localhost:4000>  | The same shop, failing on purpose                   |
 | `/_chaos` on any shop            | Controls that change its layout, speed and failures |
 | `localhost:55433`                | PostgreSQL, for a database GUI                      |
+
+Set `ADMIN_EMAILS` in `.env` to see the System page at `/admin`.
+
+## Tests
+
+```sh
+make check          # formatting, lint, type checks, and 553 unit and integration tests
+make test-browser   # 11 tests that need a real Chromium
+make e2e            # 13 end-to-end tests at desktop and phone sizes, with axe on every page
+```
+
+Integration tests run against real PostgreSQL and Redis. CI runs all three on every push; the
+end-to-end job starts the whole app from source.
+
+## What's where
+
+| Part                                   | What it does                                                                            |
+| -------------------------------------- | --------------------------------------------------------------------------------------- |
+| [`apps/web`](apps/web)                 | The dashboard, the landing page and the public pages                                    |
+| [`apps/api`](apps/api)                 | Accounts, watches, alerts, the demo, the System page, live updates                      |
+| [`apps/worker`](apps/worker)           | The schedule, recording checks, healing, alert rules and deliveries, replays, clean-ups |
+| [`apps/fetcher`](apps/fetcher)         | Checks a page: plain HTTP first, Chromium when needed; previews with every price boxed  |
+| [`apps/shop`](apps/shop)               | The practice shop: three layouts, three personalities, sandboxes, replays               |
+| [`apps/e2e`](apps/e2e)                 | The end-to-end tests                                                                    |
+| [`packages/extract`](packages/extract) | Reading a price five ways, and writing a new selector when a shop redesigns             |
+| [`packages/fetch`](packages/fetch)     | Polite, guarded fetching: robots.txt, address cleaning, the private-network guard       |
+| [`packages/alerts`](packages/alerts)   | Alert rules, messages, sealed channel settings, signed webhooks                         |
+| [`packages/queue`](packages/queue)     | Job types, the per-site gate and circuit breaker in Redis                               |
+| [`packages/db`](packages/db)           | The schema and migrations                                                               |
+| [`packages/domain`](packages/domain)   | The rules the app and the API share                                                     |
+
+Once it's running, the app's `/bot` page explains how Pennydrop behaves towards a shop, and how a
+shop can turn it away.
