@@ -4,6 +4,8 @@ import { expect, test as setup } from './test.ts';
 setup('start a demo', async ({ page }) => {
   await page.goto('/');
   await page.getByRole('link', { name: 'Try the demo' }).first().click();
-  await expect(page.getByRole('heading', { name: 'Watchlist' })).toBeVisible();
+  // The dashboard's own heading: the front page has a "Watchlist" of its own.
+  await expect(page).toHaveURL(/\/app$/);
+  await expect(page.getByRole('heading', { name: 'Watchlist', level: 1 })).toBeVisible();
   await page.context().storageState({ path: '.auth/demo.json' });
 });

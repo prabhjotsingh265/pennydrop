@@ -1,78 +1,151 @@
-import { createBrowserRouter, Navigate } from 'react-router';
-import { AddPage } from './app/add/AddPage.tsx';
-import { SystemPage } from './app/admin/SystemPage.tsx';
-import { AlertsPage } from './app/AlertsPage.tsx';
-import { ChannelsPage } from './app/ChannelsPage.tsx';
-import { ChecksPage } from './app/ChecksPage.tsx';
-import { ComparePage } from './app/ComparePage.tsx';
-import { GroupsPage } from './app/GroupsPage.tsx';
-import { ProductPage } from './app/product/ProductPage.tsx';
-import { RequireAuth } from './app/RequireAuth.tsx';
-import { SettingsPage } from './app/SettingsPage.tsx';
-import { Shell } from './app/Shell.tsx';
-import { SitesPage } from './app/SitesPage.tsx';
-import { WatchlistPage } from './app/WatchlistPage.tsx';
-import { CheckEmail } from './auth/CheckEmail.tsx';
-import { DemoPage } from './auth/DemoPage.tsx';
-import { Forgot } from './auth/Forgot.tsx';
-import { Reset } from './auth/Reset.tsx';
-import { SignIn } from './auth/SignIn.tsx';
-import { SignUp } from './auth/SignUp.tsx';
-import { BotPage } from './landing/BotPage.tsx';
+import { createBrowserRouter, Navigate, Outlet, useNavigation } from 'react-router';
 import { ErrorPage } from './landing/ErrorPage.tsx';
-import { Landing } from './landing/Landing.tsx';
-import { NotFoundPage } from './landing/NotFoundPage.tsx';
-import { PrivacyPage } from './landing/PrivacyPage.tsx';
-import { TermsPage } from './landing/TermsPage.tsx';
+
+// Each page arrives with its own code, when it's first opened: the front page doesn't carry
+// the dashboard, nor the dashboard the front page's scroll scenes. The error page is always
+// here, for when a page's code can't be fetched.
+const dashboard = async () => {
+  const [{ RequireAuth }, { Shell }] = await Promise.all([
+    import('./app/RequireAuth.tsx'),
+    import('./app/Shell.tsx'),
+  ]);
+  return {
+    Component: () => (
+      <RequireAuth>
+        <Shell />
+      </RequireAuth>
+    ),
+  };
+};
+
+/** Every page, with a line along the top while the next one's code is on its way. */
+function Root() {
+  const loading = useNavigation().state === 'loading';
+  return (
+    <>
+      {loading && <div className="page-loading" aria-hidden="true" />}
+      <Outlet />
+    </>
+  );
+}
 
 export const router = createBrowserRouter([
   // Whatever any page throws ends on the error page, not a blank screen.
   {
+    Component: Root,
     errorElement: <ErrorPage />,
+    // The first page's code is fetched before anything shows: the page's own background till then.
+    hydrateFallbackElement: null,
     children: [
-      { path: '/', element: <Landing /> },
-      { path: '/bot', element: <BotPage /> },
-      { path: '/privacy', element: <PrivacyPage /> },
-      { path: '/terms', element: <TermsPage /> },
-      { path: '/signin', element: <SignIn /> },
-      { path: '/signup', element: <SignUp /> },
-      { path: '/signup/sent', element: <CheckEmail /> },
-      { path: '/demo', element: <DemoPage /> },
-      { path: '/forgot', element: <Forgot /> },
-      { path: '/reset', element: <Reset /> },
+      {
+        path: '/',
+        lazy: () => import('./landing/Landing.tsx').then((m) => ({ Component: m.Landing })),
+      },
+      {
+        path: '/bot',
+        lazy: () => import('./landing/BotPage.tsx').then((m) => ({ Component: m.BotPage })),
+      },
+      {
+        path: '/privacy',
+        lazy: () => import('./landing/PrivacyPage.tsx').then((m) => ({ Component: m.PrivacyPage })),
+      },
+      {
+        path: '/terms',
+        lazy: () => import('./landing/TermsPage.tsx').then((m) => ({ Component: m.TermsPage })),
+      },
+      {
+        path: '/signin',
+        lazy: () => import('./auth/SignIn.tsx').then((m) => ({ Component: m.SignIn })),
+      },
+      {
+        path: '/signup',
+        lazy: () => import('./auth/SignUp.tsx').then((m) => ({ Component: m.SignUp })),
+      },
+      {
+        path: '/signup/sent',
+        lazy: () => import('./auth/CheckEmail.tsx').then((m) => ({ Component: m.CheckEmail })),
+      },
+      {
+        path: '/demo',
+        lazy: () => import('./auth/DemoPage.tsx').then((m) => ({ Component: m.DemoPage })),
+      },
+      {
+        path: '/forgot',
+        lazy: () => import('./auth/Forgot.tsx').then((m) => ({ Component: m.Forgot })),
+      },
+      {
+        path: '/reset',
+        lazy: () => import('./auth/Reset.tsx').then((m) => ({ Component: m.Reset })),
+      },
       {
         path: '/app',
-        element: (
-          <RequireAuth>
-            <Shell />
-          </RequireAuth>
-        ),
+        lazy: dashboard,
         children: [
-          { index: true, element: <WatchlistPage /> },
-          { path: 'add', element: <AddPage /> },
-          { path: 'p/:id', element: <ProductPage /> },
-          { path: 'sites', element: <SitesPage /> },
-          { path: 'checks', element: <ChecksPage /> },
-          { path: 'groups', element: <GroupsPage /> },
-          { path: 'groups/:id', element: <ComparePage /> },
-          { path: 'alerts', element: <AlertsPage /> },
-          { path: 'channels', element: <ChannelsPage /> },
-          { path: 'settings', element: <SettingsPage /> },
+          {
+            index: true,
+            lazy: () =>
+              import('./app/WatchlistPage.tsx').then((m) => ({ Component: m.WatchlistPage })),
+          },
+          {
+            path: 'add',
+            lazy: () => import('./app/add/AddPage.tsx').then((m) => ({ Component: m.AddPage })),
+          },
+          {
+            path: 'p/:id',
+            lazy: () =>
+              import('./app/product/ProductPage.tsx').then((m) => ({ Component: m.ProductPage })),
+          },
+          {
+            path: 'sites',
+            lazy: () => import('./app/SitesPage.tsx').then((m) => ({ Component: m.SitesPage })),
+          },
+          {
+            path: 'checks',
+            lazy: () => import('./app/ChecksPage.tsx').then((m) => ({ Component: m.ChecksPage })),
+          },
+          {
+            path: 'groups',
+            lazy: () => import('./app/GroupsPage.tsx').then((m) => ({ Component: m.GroupsPage })),
+          },
+          {
+            path: 'groups/:id',
+            lazy: () => import('./app/ComparePage.tsx').then((m) => ({ Component: m.ComparePage })),
+          },
+          {
+            path: 'alerts',
+            lazy: () => import('./app/AlertsPage.tsx').then((m) => ({ Component: m.AlertsPage })),
+          },
+          {
+            path: 'channels',
+            lazy: () =>
+              import('./app/ChannelsPage.tsx').then((m) => ({ Component: m.ChannelsPage })),
+          },
+          {
+            path: 'settings',
+            lazy: () =>
+              import('./app/SettingsPage.tsx').then((m) => ({ Component: m.SettingsPage })),
+          },
         ],
       },
       // The phase-0 design prototype grew into the landing page.
       // The platform's own page, for its admins, in the dashboard's frame.
       {
         path: '/admin',
-        element: (
-          <RequireAuth>
-            <Shell />
-          </RequireAuth>
-        ),
-        children: [{ index: true, element: <SystemPage /> }],
+        lazy: dashboard,
+        children: [
+          {
+            index: true,
+            lazy: () =>
+              import('./app/admin/SystemPage.tsx').then((m) => ({ Component: m.SystemPage })),
+          },
+        ],
       },
       { path: '/prototype', element: <Navigate to="/" replace /> },
-      { path: '*', element: <NotFoundPage /> },
+      {
+        path: '*',
+        lazy: () =>
+          import('./landing/NotFoundPage.tsx').then((m) => ({ Component: m.NotFoundPage })),
+      },
     ],
   },
 ]);

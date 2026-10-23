@@ -73,14 +73,24 @@ export function useMe() {
   return useQuery({ queryKey: keys.me, queryFn: fetchMe, staleTime: 60_000 });
 }
 
+const fetchWatches = ({ signal }: { signal?: AbortSignal }) =>
+  api<{ watches: WatchSummary[] }>('/api/watches', { signal }).then((data) => data.watches);
+
 export function useWatches() {
   const poll = usePollInterval();
-  return useQuery({
-    queryKey: keys.watches,
-    queryFn: ({ signal }) =>
-      api<{ watches: WatchSummary[] }>('/api/watches', { signal }).then((data) => data.watches),
-    refetchInterval: poll,
-  });
+  return useQuery({ queryKey: keys.watches, queryFn: fetchWatches, refetchInterval: poll });
+}
+
+/**
+ * Opening the dashboard straight from an address: who's signed in, and the watchlist, are
+ * asked for at once, while the page's own code is still on its way, not after it arrives.
+ */
+export function prefetchDashboard(client: QueryClient, path: string) {
+  if (!/^\/(app|admin)(\/|$)/.test(path)) return;
+  void client.prefetchQuery({ queryKey: keys.me, queryFn: fetchMe, staleTime: 60_000 });
+  if (/^\/app\/?$/.test(path)) {
+    void client.prefetchQuery({ queryKey: keys.watches, queryFn: fetchWatches });
+  }
 }
 
 /** One product. `eager`: a check was just asked for, so look every couple of seconds. */

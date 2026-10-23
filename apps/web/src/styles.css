@@ -324,3 +324,28 @@
     transform: translateY(14px);
   }
 }
+
+/* A page's code on its way: a thin copper line along the top, after a moment's grace so a
+   quick page never flickers it. It slows as it goes, never claiming to be done. */
+.page-loading {
+  position: fixed;
+  inset: 0 0 auto;
+  z-index: 60;
+  height: 2px;
+  background: var(--copper);
+  transform-origin: left;
+  transform: scaleX(0);
+  animation: page-loading 4s cubic-bezier(0.1, 0.7, 0.2, 1) 150ms forwards;
+}
+@keyframes page-loading {
+  to {
+    transform: scaleX(0.9);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .page-loading {
+    animation: none;
+    transform: scaleX(1);
+    opacity: 0.6;
+  }
+}

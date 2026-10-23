@@ -11,6 +11,7 @@ import { systemLookup, type Lookup } from './addresses.ts';
 import type { Auth } from './auth.ts';
 import { adminRoutes, isAdmin } from './admin.ts';
 import { alertRoutes } from './alerts.ts';
+import { compressAnswer } from './compress.ts';
 import { demoRoutes, demoStartRoute } from './demo.ts';
 import type { Config } from './config.ts';
 import type { LiveHub } from './live.ts';
@@ -122,6 +123,7 @@ export function buildApp(deps: AppDeps) {
       reply.header('cache-control', 'no-store');
     }
   });
+  app.addHook('onSend', compressAnswer);
 
   // Production: the built app, from the API itself. Its hashed files never change, so they're
   // kept for a year; index.html is asked for afresh, and answers for every page of the app.
@@ -130,6 +132,8 @@ export function buildApp(deps: AppDeps) {
       root: config.webDist,
       wildcard: false,
       index: false,
+      // The build writes .br and .gz beside each text file: sent as the browser accepts.
+      preCompressed: true,
       setHeaders: (reply, path) => {
         reply.header(
           'cache-control',

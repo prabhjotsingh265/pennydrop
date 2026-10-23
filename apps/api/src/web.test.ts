@@ -1,6 +1,7 @@
-import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { brotliCompressSync, brotliDecompressSync, gunzipSync, gzipSync } from 'node:zlib';
 import { afterAll, describe, expect, it } from 'vitest';
 import { harness } from '../test/harness.ts';
 import { contentSecurityPolicy } from './app.ts';
@@ -11,6 +12,12 @@ mkdirSync(join(dist, 'assets'));
 writeFileSync(join(dist, 'index.html'), '<!doctype html><title>Pennydrop</title>');
 writeFileSync(join(dist, 'assets', 'index-a1b2c3.js'), 'console.log(1)');
 writeFileSync(join(dist, 'robots.txt'), 'User-agent: *');
+// And compressed, as the build writes them.
+for (const file of ['index.html', 'assets/index-a1b2c3.js']) {
+  const body = readFileSync(join(dist, file));
+  writeFileSync(join(dist, `${file}.br`), brotliCompressSync(body));
+  writeFileSync(join(dist, `${file}.gz`), gzipSync(body));
+}
 
 const h = harness({ webDist: dist });
 afterAll(async () => {
@@ -29,6 +36,31 @@ describe('the built app, from the API', () => {
     }
     // Uptime monitors ask with HEAD.
     expect((await h.app.inject({ method: 'HEAD', url: '/' })).statusCode).toBe(200);
+  });
+
+  it('sends the compressed copy the browser takes, pages included', async () => {
+    const as = (url: string, encoding?: string) =>
+      h.app.inject({
+        method: 'GET',
+        url,
+        headers: encoding ? { 'accept-encoding': encoding } : {},
+      });
+    const br = await as('/assets/index-a1b2c3.js', 'gzip, deflate, br');
+    expect(br.headers['content-encoding']).toBe('br');
+    expect(br.headers.vary).toContain('accept-encoding');
+    expect(br.headers['cache-control']).toBe('public, max-age=31536000, immutable');
+    expect(brotliDecompressSync(br.rawPayload).toString()).toBe('console.log(1)');
+    const gz = await as('/assets/index-a1b2c3.js', 'gzip');
+    expect(gz.headers['content-encoding']).toBe('gzip');
+    expect(gunzipSync(gz.rawPayload).toString()).toBe('console.log(1)');
+    const plain = await as('/assets/index-a1b2c3.js');
+    expect(plain.headers['content-encoding']).toBeUndefined();
+    expect(plain.body).toBe('console.log(1)');
+
+    const page = await as('/app/settings', 'br');
+    expect(page.headers['content-encoding']).toBe('br');
+    expect(page.headers['cache-control']).toBe('no-cache');
+    expect(brotliDecompressSync(page.rawPayload).toString()).toContain('<title>Pennydrop</title>');
   });
 
   it('answers a missing file with a 404, not the page', async () => {
