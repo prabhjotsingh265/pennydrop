@@ -15,6 +15,22 @@ export interface Email {
 
 export type Mailer = (email: Email) => Promise<void>;
 
+/**
+ * MAIL_FROM, RESEND_API_KEY and MAILPIT_URL. Production must send for real: printed to the
+ * console, a sign-up's link would reach nobody and sit in the logs.
+ */
+export function mailSettingsFromEnv(env: NodeJS.ProcessEnv = process.env): MailSettings {
+  const settings: MailSettings = {
+    from: env.MAIL_FROM || 'Pennydrop <hello@pennydrop.test>',
+    mailpitUrl: env.MAILPIT_URL || undefined,
+    resendKey: env.RESEND_API_KEY || undefined,
+  };
+  if (env.NODE_ENV === 'production' && !settings.resendKey && !settings.mailpitUrl) {
+    throw new Error('RESEND_API_KEY must be set in production (or MAILPIT_URL, to rehearse).');
+  }
+  return settings;
+}
+
 /** "Pennydrop <hello@x>" as a name and an address. */
 function parseAddress(from: string): { name?: string; email: string } {
   const match = /^\s*(.*?)\s*<([^>]+)>\s*$/.exec(from);

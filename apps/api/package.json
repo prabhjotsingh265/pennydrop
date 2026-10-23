@@ -10,6 +10,7 @@
     "test": "vitest run"
   },
   "dependencies": {
+    "@fastify/static": "10.1.6",
     "@pennydrop/alerts": "workspace:*",
     "@pennydrop/db": "workspace:*",
     "@pennydrop/domain": "workspace:*",

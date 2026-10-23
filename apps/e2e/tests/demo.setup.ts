@@ -1,4 +1,4 @@
-import { expect, test as setup } from '@playwright/test';
+import { expect, test as setup } from './test.ts';
 
 // One demo for the whole run, as a visitor gets it: one click from the front page.
 setup('start a demo', async ({ page }) => {

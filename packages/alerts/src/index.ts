@@ -7,7 +7,13 @@ export {
   sign,
   verify,
 } from './crypto.ts';
-export { createMailer, type Email, type MailSettings, type Mailer } from './mail.ts';
+export {
+  createMailer,
+  mailSettingsFromEnv,
+  type Email,
+  type MailSettings,
+  type Mailer,
+} from './mail.ts';
 export {
   REARM_MARGIN,
   judge,

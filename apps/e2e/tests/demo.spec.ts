@@ -1,4 +1,4 @@
-import { expect, test, type Page } from '@playwright/test';
+import { expect, test, type Page } from './test.ts';
 import { expectAccessible } from './axe.ts';
 
 /** The visitor's own copy of the shop: the product page with the "Break the shop" panel. */

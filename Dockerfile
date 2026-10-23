@@ -55,3 +55,34 @@ RUN corepack enable \
     && chmod 777 /pnpm-store
 
 WORKDIR /app
+
+# ---- Production ----
+
+# Everything built once: the database client, the bundles and the web app. Each
+# app is then deployed with only the npm packages its bundle still imports.
+FROM base AS build
+COPY . .
+RUN pnpm install --frozen-lockfile \
+    && pnpm build \
+    && for app in api worker fetcher shop; do \
+         pnpm --filter "@pennydrop/${app}" --config.node-linker=hoisted deploy --legacy --prod "/out/${app}"; \
+       done
+
+# The API (serving the built app), the worker, the plain fetcher and the shop: one
+# image, each started by its own command. A non-root user; files it keeps go in /data.
+FROM node:24-bookworm-slim AS prod
+ENV NODE_ENV=production
+WORKDIR /srv
+COPY --from=build --chown=node:node /out /srv
+COPY --from=build --chown=node:node /app/apps/web/dist /srv/web
+RUN mkdir -p /data/screenshots && chown -R node:node /data
+USER node
+
+# The browser fetcher: the same fetcher, on Playwright's image with Chromium.
+FROM mcr.microsoft.com/playwright:v1.63.0-noble AS browser-prod
+ENV NODE_ENV=production \
+    HOME=/tmp
+WORKDIR /srv
+COPY --from=build --chown=1000:1000 /out/fetcher /srv/fetcher
+RUN mkdir -p /data/screenshots && chown -R 1000:1000 /data
+USER 1000:1000

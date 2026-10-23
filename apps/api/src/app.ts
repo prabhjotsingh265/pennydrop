@@ -3,6 +3,7 @@ import { updateWorkspaceSchema, type Me } from '@pennydrop/domain';
 import type { Mailer } from '@pennydrop/alerts';
 import type { LiveMessage } from '@pennydrop/queue';
 import type { Queue } from 'bullmq';
+import fastifyStatic from '@fastify/static';
 import { fromNodeHeaders } from 'better-auth/node';
 import Fastify, { type FastifyReply, type FastifyRequest } from 'fastify';
 import { ZodError } from 'zod';
@@ -60,6 +61,26 @@ export interface AppDeps {
 
 const SAFE = new Set(['GET', 'HEAD', 'OPTIONS']);
 
+/**
+ * What a page from Pennydrop may load: only its own scripts, styles, fonts and
+ * data, images from itself (and drawn ones), and never a frame around it.
+ */
+export function contentSecurityPolicy(https: boolean): string {
+  return [
+    "default-src 'self'",
+    "script-src 'self'",
+    "style-src 'self'",
+    "img-src 'self' data: blob:",
+    "font-src 'self'",
+    "connect-src 'self'",
+    "object-src 'none'",
+    "base-uri 'self'",
+    "form-action 'self'",
+    "frame-ancestors 'none'",
+    ...(https ? ['upgrade-insecure-requests'] : []),
+  ].join('; ');
+}
+
 export function buildApp(deps: AppDeps) {
   const { db, auth, config } = deps;
   const app = Fastify({
@@ -68,15 +89,49 @@ export function buildApp(deps: AppDeps) {
   });
   const appOrigin = new URL(config.appUrl).origin;
 
-  // Every answer: no guessing its type, no framing it, no addresses leaked as referrers, and
-  // no shared cache keeping someone's data, unless a route says otherwise.
-  app.addHook('onSend', async (_request, reply) => {
+  // Every answer: no guessing its type, no framing it, no addresses leaked as referrers, only
+  // this origin's scripts, styles and data (the app's pages included), and HTTPS kept once used.
+  // Data from the API is never kept by a shared cache, unless a route says otherwise.
+  const https = config.appUrl.startsWith('https://');
+  const policy = contentSecurityPolicy(https);
+  app.addHook('onSend', async (request, reply) => {
     reply.header('x-content-type-options', 'nosniff');
     reply.header('x-frame-options', 'DENY');
     reply.header('referrer-policy', 'strict-origin-when-cross-origin');
     reply.header('cross-origin-resource-policy', 'same-origin');
-    if (!reply.hasHeader('cache-control')) reply.header('cache-control', 'no-store');
+    reply.header('content-security-policy', policy);
+    if (https) reply.header('strict-transport-security', 'max-age=31536000');
+    if (request.url.startsWith('/api/') && !reply.hasHeader('cache-control')) {
+      reply.header('cache-control', 'no-store');
+    }
   });
+
+  // Production: the built app, from the API itself. Its hashed files never change, so they're
+  // kept for a year; index.html is asked for afresh, and answers for every page of the app.
+  if (config.webDist) {
+    app.register(fastifyStatic, {
+      root: config.webDist,
+      wildcard: false,
+      index: false,
+      setHeaders: (reply, path) => {
+        reply.header(
+          'cache-control',
+          path.includes('/assets/') ? 'public, max-age=31536000, immutable' : 'no-cache',
+        );
+      },
+    });
+    app.setNotFoundHandler((request, reply) => {
+      // Any other address is one of the app's pages. A missing file (an old build's script
+      // after a deploy) or API route is a plain 404, never the page in its place.
+      const path = request.url.split('?')[0]!;
+      const page =
+        (request.method === 'GET' || request.method === 'HEAD') &&
+        !path.startsWith('/api/') &&
+        !/\.[^/]*$/.test(path);
+      if (!page) return reply.code(404).send({ error: 'Not found.' });
+      return reply.header('cache-control', 'no-cache').sendFile('index.html');
+    });
+  }
 
   app.get('/api/health', async () => ({ status: 'ok' }));
 

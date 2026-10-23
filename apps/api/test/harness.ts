@@ -20,7 +20,8 @@ export const APP_URL = 'http://localhost:3000';
 export function harness({
   limiter = unlimited,
   queues,
-}: { limiter?: Limiter; queues?: Record<string, Queue> } = {}) {
+  webDist,
+}: { limiter?: Limiter; queues?: Record<string, Queue>; webDist?: string } = {}) {
   const db = testDb('api');
   const sent: Email[] = [];
   const config: Config = {
@@ -30,6 +31,7 @@ export function harness({
     localShops: false,
     channelsKey: 'test-channels-key',
     screenshotDir: mkdtempSync(join(tmpdir(), 'pennydrop-api-shots-')),
+    webDist,
     trustProxy: false,
     demo: {
       practiceShopUrl: 'http://{shop}.localhost:4000',

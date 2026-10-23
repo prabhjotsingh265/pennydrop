@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test';
+import { expect, test } from './test.ts';
 import { expectAccessible } from './axe.ts';
 
 // The public pages, as anyone arriving sees them: signed out.

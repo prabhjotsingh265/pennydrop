@@ -1,0 +1,163 @@
+# Pennydrop in production: the built apps, no dev servers, no Mailpit.
+#   make prod-up   (docker compose --env-file .env.production -f compose.prod.yaml up -d --build)
+# Settings come from .env.production (see .env.production.example), for the containers and for
+# the ${…} below alike: always pass --env-file, as the make targets do.
+#
+# Networks keep untrusted work away from the data: the fetchers load pages from
+# anywhere, so they share a network with Redis and the shop, never PostgreSQL.
+name: pennydrop-prod
+
+# Logs are kept to 30 MB a service, the newest, or months of them would fill the disk.
+x-logs: &logs
+  logging:
+    driver: json-file
+    options:
+      max-size: 10m
+      max-file: '3'
+
+x-app: &app
+  <<: *logs
+  image: pennydrop:prod
+  build:
+    context: .
+    target: prod
+  restart: unless-stopped
+  env_file:
+    - path: ${ENV_FILE:-.env.production}
+      required: true
+
+services:
+  # The API, which also serves the built app. Reached by the tunnel (or a proxy) on its port.
+  api:
+    <<: *app
+    command: ['node', 'api/dist/server.js']
+    environment:
+      API_PORT: ${API_PORT:-8080}
+      WEB_DIST: /srv/web
+      SCREENSHOT_DIR: /data/screenshots
+    volumes:
+      - screenshots:/data/screenshots
+    networks: [data, shop-controls]
+    ports:
+      # This machine only: the tunnel or a proxy in front is the way in from outside.
+      - '127.0.0.1:${API_PORT:-8080}:${API_PORT:-8080}'
+    healthcheck:
+      test:
+        [
+          'CMD',
+          'node',
+          '-e',
+          'fetch(`http://127.0.0.1:$${process.env.API_PORT}/api/health`).then(r => process.exit(r.ok ? 0 : 1), () => process.exit(1))',
+        ]
+      interval: 10s
+      timeout: 3s
+      retries: 10
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  # Schedules checks, records them, sends alerts, and tidies up nightly.
+  worker:
+    <<: *app
+    command: ['node', 'worker/dist/main.js']
+    environment:
+      SCREENSHOT_DIR: /data/screenshots
+    volumes:
+      - screenshots:/data/screenshots
+    networks: [data]
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  fetch-http:
+    <<: *app
+    command: ['node', 'fetcher/dist/main.js']
+    environment:
+      FETCHER_LANE: http
+    networks: [queue, egress]
+    depends_on:
+      redis:
+        condition: service_healthy
+
+  fetch-browser:
+    <<: *app
+    image: pennydrop-browser:prod
+    build:
+      context: .
+      target: browser-prod
+    command: ['node', 'fetcher/dist/main.js']
+    environment:
+      FETCHER_LANE: browser
+      SCREENSHOT_DIR: /data/screenshots
+    volumes:
+      - screenshots:/data/screenshots
+    networks: [queue, egress]
+    depends_on:
+      redis:
+        condition: service_healthy
+
+  # The practice shops: Fickle, Slowpoke, Brittle and the demo's sandboxes.
+  shop:
+    <<: *app
+    command: ['node', 'shop/dist/server.js']
+    networks: [egress, shop-controls]
+
+  postgres:
+    <<: *logs
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-pennydrop}
+      POSTGRES_USER: ${POSTGRES_USER:-pennydrop}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env.production}
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    networks: [data]
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}']
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  redis:
+    <<: *logs
+    image: redis:8.2-alpine
+    restart: unless-stopped
+    command: ['redis-server', '--appendonly', 'yes', '--maxmemory-policy', 'noeviction']
+    volumes:
+      - redis-data:/data
+    networks: [data, queue]
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  # One-off jobs on the full build (migrations, the demo's showcase, backups):
+  #   docker compose -f compose.prod.yaml run --rm tools pnpm --filter @pennydrop/db migrate
+  tools:
+    image: pennydrop:build
+    build:
+      context: .
+      target: build
+    profiles: ['tools']
+    env_file:
+      - path: ${ENV_FILE:-.env.production}
+        required: true
+    networks: [data, queue]
+    working_dir: /app
+
+networks:
+  data:
+  queue:
+  egress:
+  shop-controls:
+
+volumes:
+  postgres-data:
+  redis-data:
+  screenshots:

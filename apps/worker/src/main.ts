@@ -1,4 +1,9 @@
-import { channelKey, channelsKeyFromEnv, createMailer } from '@pennydrop/alerts';
+import {
+  channelKey,
+  channelsKeyFromEnv,
+  createMailer,
+  mailSettingsFromEnv,
+} from '@pennydrop/alerts';
 import { createDb } from '@pennydrop/db';
 import {
   QUEUES,
@@ -20,6 +25,10 @@ import { dispatch, type DispatchResult } from './dispatch.ts';
 import { ingest } from './ingest.ts';
 import { cleanDemos, pruneChecks, pruneScreenshots } from './maintenance.ts';
 import { continueReplay } from './replay.ts';
+
+// Settings first, so a missing one stops the worker before it takes any work.
+const mailSettings = mailSettingsFromEnv();
+const channelsKey = channelKey(channelsKeyFromEnv());
 
 // The only process with the database: it decides what to check and records what was found.
 const db = createDb();
@@ -124,14 +133,10 @@ ingester.on('failed', (job, error) => console.error(`ingest ${job?.id} failed:`,
 
 // Alerts: the rules judge each new price, and each delivery is sent and retried on its own.
 const localShop = process.env.LOCAL_SHOP_HOST;
-const mail = createMailer({
-  from: process.env.MAIL_FROM || 'Pennydrop <hello@pennydrop.test>',
-  mailpitUrl: process.env.MAILPIT_URL || undefined,
-  resendKey: process.env.RESEND_API_KEY || undefined,
-});
+const mail = createMailer(mailSettings);
 const sender: SenderDeps = {
   db,
-  key: channelKey(channelsKeyFromEnv()),
+  key: channelsKey,
   appUrl: process.env.APP_URL || 'http://localhost:3000',
   mail,
   publish,

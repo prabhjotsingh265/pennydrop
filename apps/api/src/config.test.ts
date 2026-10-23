@@ -44,4 +44,12 @@ describe('configFromEnv', () => {
       /CHANNELS_KEY/,
     );
   });
+
+  it('won’t start in production without a way to send email', () => {
+    const secrets = { NODE_ENV: 'production', AUTH_SECRET: 'x', CHANNELS_KEY: 'y' };
+    expect(() => configFromEnv(secrets)).toThrow(/RESEND_API_KEY/);
+    expect(configFromEnv({ ...secrets, RESEND_API_KEY: 'key' }).mail.resendKey).toBe('key');
+    // Development prints emails instead.
+    expect(configFromEnv({}).mail).toEqual({ from: 'Pennydrop <hello@pennydrop.test>' });
+  });
 });

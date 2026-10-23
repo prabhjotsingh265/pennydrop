@@ -1,4 +1,4 @@
-import { channelsKeyFromEnv } from '@pennydrop/alerts';
+import { channelsKeyFromEnv, mailSettingsFromEnv } from '@pennydrop/alerts';
 import { LOCAL_PRACTICE_SHOP_URL } from '@pennydrop/domain';
 
 export interface Config {
@@ -28,6 +28,8 @@ export interface Config {
   demo: { practiceShopUrl: string; shopInternalUrl: string; chaosToken?: string } | null;
   /** Who sees the System page: email addresses, lower-cased. */
   adminEmails: string[];
+  /** Production: the built React app, served by the API itself. */
+  webDist?: string;
 }
 
 /** Locally, the shop container answers for every practice shop; in production, both are set. */
@@ -57,17 +59,14 @@ export function configFromEnv(env: NodeJS.ProcessEnv = process.env): Config {
   return {
     appUrl: env.APP_URL || 'http://localhost:3000',
     authSecret,
-    mail: {
-      from: env.MAIL_FROM || 'Pennydrop <hello@pennydrop.test>',
-      mailpitUrl: env.MAILPIT_URL || undefined,
-      resendKey: env.RESEND_API_KEY || undefined,
-    },
+    mail: mailSettingsFromEnv(env),
     localShops: Boolean(env.LOCAL_SHOP_HOST),
     screenshotDir: env.SCREENSHOT_DIR || undefined,
     localShopHost: env.LOCAL_SHOP_HOST || undefined,
     channelsKey,
     trustProxy: trustProxyFrom(env.TRUST_PROXY),
     demo: demoFrom(env),
+    webDist: env.WEB_DIST || undefined,
     adminEmails: (env.ADMIN_EMAILS ?? '')
       .split(',')
       .map((email) => email.trim().toLowerCase())

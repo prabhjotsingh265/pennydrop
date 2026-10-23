@@ -4,3 +4,11 @@ node_modules
 .git
 .turbo
 .env
+.data
+**/test-results
+**/playwright-report
+**/.auth
+docs
+.env.*
+!.env.example
+!.env.production.example

@@ -137,10 +137,28 @@ Then open <http://localhost:3000> and press **Try the demo**.
 
 Set `ADMIN_EMAILS` in `.env` to see the System page at `/admin`.
 
+## Run it in production
+
+The production build is two images: one holds the API (which serves the built app), the worker,
+the plain fetcher and the practice shop; the browser fetcher runs on Playwright's image.
+
+```sh
+cp .env.production.example .env.production   # then fill it in
+make prod-up     # build, apply migrations, start everything
+make prod-demo   # the demo's showcase
+make prod-logs   # follow the logs
+```
+
+The API listens on this machine only (port 8080); a tunnel or proxy in front serves it over
+HTTPS. Pages are sent with a strict content security policy (nothing inline, nothing from another
+origin), and with HSTS once `APP_URL` is `https`. Production won't start without its secrets or a
+way to send email. `.env.production.example` says how to rehearse the whole thing on your own
+machine, end-to-end tests included.
+
 ## Tests
 
 ```sh
-make check          # formatting, lint, type checks, and 553 unit and integration tests
+make check          # formatting, lint, type checks, and 560 unit and integration tests
 make test-browser   # 11 tests that need a real Chromium
 make e2e            # 13 end-to-end tests at desktop and phone sizes, with axe on every page
 ```
