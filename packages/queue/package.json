@@ -12,7 +12,8 @@
   "dependencies": {
     "@pennydrop/domain": "workspace:*",
     "bullmq": "5.81.5",
-    "ioredis": "5.11.1"
+    "ioredis": "5.11.1",
+    "pino": "10.4.0"
   },
   "devDependencies": {
     "vitest": "4.1.12"

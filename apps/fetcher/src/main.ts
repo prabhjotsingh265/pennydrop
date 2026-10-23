@@ -1,6 +1,13 @@
 import { hostname } from 'node:os';
 import { replaySecretFromEnv } from '@pennydrop/fetch';
-import { Breaker, QUEUES, SiteGate, redisConnection, type IngestJob } from '@pennydrop/queue';
+import {
+  Breaker,
+  QUEUES,
+  SiteGate,
+  createLog,
+  redisConnection,
+  type IngestJob,
+} from '@pennydrop/queue';
 import { Queue, Worker } from 'bullmq';
 import { BrowserPool } from './browser.ts';
 import { createChecker } from './check.ts';
@@ -10,6 +17,7 @@ import { createFetchProcessor } from './worker.ts';
 // One codebase, two lanes: plain HTTP (many at once) or Chromium (a few at once).
 const lane = process.env.FETCHER_LANE === 'browser' ? 'browser' : 'http';
 const concurrency = Number(process.env.FETCHER_CONCURRENCY ?? (lane === 'browser' ? 2 : 20));
+const log = createLog(`fetch-${lane}`);
 const userAgent =
   process.env.FETCHER_USER_AGENT ??
   'PennydropBot/0.1 (+https://pennydrop.ingenio-algomancer.com/bot)';
@@ -47,8 +55,21 @@ const worker = new Worker(lane === 'browser' ? QUEUES.fetchBrowser : QUEUES.fetc
   // A browser check can take most of a minute; the lock must outlast it.
   lockDuration: lane === 'browser' ? 120_000 : 60_000,
 });
-worker.on('failed', (job, error) => console.error(`check ${job?.id} failed:`, error.message));
-console.log(`Fetcher (${lane}) running ${concurrency} at a time.`);
+// Every check, by its job id: the ingest job that records it has the same one.
+worker.on('completed', (job, summary) =>
+  log.info(
+    {
+      job: job.id,
+      target: job.data.targetId,
+      host: job.data.host,
+      reason: job.data.reason,
+      ...summary,
+    },
+    'checked',
+  ),
+);
+worker.on('failed', (job, error) => log.error({ job: job?.id, err: error }, 'check failed'));
+log.info(`running ${concurrency} at a time`);
 
 // The browser lane also renders previews for people adding a product: one at a time, sharing its Chromium.
 const previews =
@@ -63,7 +84,10 @@ const previews =
         },
       )
     : null;
-previews?.on('failed', (job, error) => console.error(`preview ${job?.id} failed:`, error.message));
+previews?.on('completed', (job) =>
+  log.info({ job: job.id, host: URL.parse(job.data.url)?.host }, 'previewed'),
+);
+previews?.on('failed', (job, error) => log.error({ job: job?.id, err: error }, 'preview failed'));
 
 // Finish the checks in hand before exiting when Docker stops the container.
 for (const signal of ['SIGINT', 'SIGTERM'] as const) {

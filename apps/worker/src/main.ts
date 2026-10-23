@@ -7,6 +7,7 @@ import {
 import { createDb } from '@pennydrop/db';
 import {
   QUEUES,
+  createLog,
   publishLive,
   redisConnection,
   type FetchJob,
@@ -26,6 +27,8 @@ import { ingest } from './ingest.ts';
 import { cleanDemos, pruneChecks, pruneScreenshots } from './maintenance.ts';
 import { continueReplay } from './replay.ts';
 
+const log = createLog('worker');
+
 // Settings first, so a missing one stops the worker before it takes any work.
 const mailSettings = mailSettingsFromEnv();
 const channelsKey = channelKey(channelsKeyFromEnv());
@@ -43,7 +46,7 @@ const judged = new Queue<{ pricePointId: string }>(QUEUES.alerts, { connection }
 const notify = new Queue<NotifyJob>(QUEUES.notify, { connection });
 const publish = (message: Parameters<typeof publishLive>[1]) =>
   publishLive(connection, message).catch((error: unknown) =>
-    console.error('live update not sent:', error),
+    log.warn({ err: error }, 'live update not sent'),
   );
 
 // A job scheduler runs the tick once every 15 s, however many of these processes run.
@@ -62,13 +65,10 @@ const dispatcher = new Worker<unknown, DispatchResult>(
   },
 );
 dispatcher.on('completed', (_job, result) => {
-  if (result.dispatched || result.held) {
-    console.log(
-      `dispatch: ${result.dispatched} queued${result.held ? ' (held: queues full)' : ''}`,
-    );
-  }
+  // "held": the fetch queues are full, so nothing more is queued until they drain.
+  if (result.dispatched || result.held) log.info(result, 'dispatched');
 });
-dispatcher.on('failed', (_job, error) => console.error('dispatch failed:', error.message));
+dispatcher.on('failed', (_job, error) => log.error({ err: error }, 'dispatch failed'));
 
 // Nightly at 03:00 UTC: trim the check log. Price history is kept for good.
 await chores.upsertJobScheduler(
@@ -86,12 +86,8 @@ const maintainer = new Worker(
   }),
   { connection, concurrency: 1 },
 );
-maintainer.on('completed', (_job, result) =>
-  console.log(
-    `maintenance: pruned ${result.pruned} old checks and ${result.screenshots} old screenshots; ` +
-      `deleted ${result.demos.demos} ended demos, ${result.demos.visitors} visitors and ${result.demos.sandboxes} sandbox shops`,
-  ),
-);
+maintainer.on('completed', (_job, result) => log.info(result, 'tidied up'));
+maintainer.on('failed', (_job, error) => log.error({ err: error }, 'tidying up failed'));
 
 const ingester = new Worker<IngestJob>(
   QUEUES.ingest,
@@ -111,7 +107,7 @@ const ingester = new Worker<IngestJob>(
         targetId: job.data.job.targetId,
         outcome: result.outcome,
         priceChanged: result.priceChanged,
-      }).catch((error: unknown) => console.error('live update not sent:', error));
+      }).catch((error: unknown) => log.warn({ err: error }, 'live update not sent'));
     }
     // A new price: the alert rules look at it, once, however often this job runs.
     if (result.pricePointId) {
@@ -129,7 +125,22 @@ const ingester = new Worker<IngestJob>(
   },
   { connection, concurrency: 10 },
 );
-ingester.on('failed', (job, error) => console.error(`ingest ${job?.id} failed:`, error.message));
+// The job id is the fetch job's: the same on the fetcher's line for this check.
+ingester.on('completed', (job, result) => {
+  if (!result.recorded) return;
+  log.info(
+    {
+      job: job.id,
+      check: result.checkId,
+      target: job.data.job.targetId,
+      outcome: result.outcome,
+      priceChanged: result.priceChanged,
+      ...(result.events.length && { events: result.events }),
+    },
+    'recorded',
+  );
+});
+ingester.on('failed', (job, error) => log.error({ job: job?.id, err: error }, 'recording failed'));
 
 // Alerts: the rules judge each new price, and each delivery is sent and retried on its own.
 const localShop = process.env.LOCAL_SHOP_HOST;
@@ -157,8 +168,11 @@ const judge = new Worker<{ pricePointId: string }>(
   (job) => evaluate({ db, notify, publish }, job.data.pricePointId),
   { connection, concurrency: 5 },
 );
+judge.on('completed', (job, result) => {
+  if (result.alerts) log.info({ pricePoint: job.data.pricePointId, ...result }, 'alerted');
+});
 judge.on('failed', (job, error) =>
-  console.error(`alert rules for ${job?.id} failed:`, error.message),
+  log.error({ pricePoint: job?.data.pricePointId, err: error }, 'alert rules failed'),
 );
 
 await notify.upsertJobScheduler('summaries', { every: 60_000 }, { name: 'summaries' });
@@ -176,9 +190,19 @@ const notifier = new Worker<NotifyJob>(
     },
   },
 );
-notifier.on('failed', (job, error) => console.error(`delivery ${job?.id} failed:`, error.message));
+notifier.on('completed', (job, result) => {
+  if (job.name === 'summaries') {
+    if (result) log.info({ summaries: result }, 'summaries sent');
+  } else log.info({ delivery: job.data.deliveryId, result }, 'delivery');
+});
+notifier.on('failed', (job, error) =>
+  log.error(
+    { delivery: job?.data.deliveryId, attempt: job?.attemptsMade, err: error },
+    'delivery failed',
+  ),
+);
 
-console.log('Worker running: dispatching every 15 s, recording results.');
+log.info('running: dispatching every 15 s, recording results');
 
 for (const signal of ['SIGINT', 'SIGTERM'] as const) {
   process.once(signal, () => {

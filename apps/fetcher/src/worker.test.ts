@@ -163,7 +163,13 @@ describe('replays', () => {
       reason: 'replay',
       scheduledFor: Date.now() - DAY,
     });
-    await unsigned({ id: 'replay-unsigned', data } as Job<FetchJob>);
+    // What the logs are told, too.
+    expect(await unsigned({ id: 'replay-unsigned', data } as Job<FetchJob>)).toEqual({
+      outcome: 'http_error',
+      ms: 0,
+      strategy: null,
+      breaker: null,
+    });
     const [report] = await reports(1);
     expect(report).toMatchObject({ outcome: 'http_error', amount: null });
     expect(report!.detail).toContain('REPLAY_SECRET');

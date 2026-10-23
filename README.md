@@ -166,6 +166,8 @@ machine, end-to-end tests included.
   dead worker can't silence it.
 - **For an uptime monitor:** `/api/health` answers 503 when the database or Redis can't be
   reached.
+- **Logs** are JSON lines from every service. A check keeps one job id from the fetcher's
+  "checked" line to the worker's "recorded" line, which adds the check's id.
 
 ## Tests
 

@@ -30,6 +30,8 @@ export interface IngestDeps {
 export interface IngestResult {
   /** False when this check had already been recorded (the job ran twice). */
   recorded: boolean;
+  /** The check log's row, when this job wrote it. */
+  checkId: string | null;
   outcome: CheckOutcome;
   /** A new price point was written. */
   priceChanged: boolean;
@@ -130,6 +132,7 @@ async function recordReplay(
   }
   return {
     recorded: true,
+    checkId: check.id,
     outcome: report.outcome,
     priceChanged: false,
     pricePointId: null,
@@ -169,6 +172,7 @@ export async function ingest(deps: IngestDeps, data: IngestJob): Promise<IngestR
       if (!target)
         return {
           recorded: false,
+          checkId: null,
           outcome: report.outcome,
           priceChanged: false,
           pricePointId: null,
@@ -177,6 +181,7 @@ export async function ingest(deps: IngestDeps, data: IngestJob): Promise<IngestR
       if (await tx.check.findUnique({ where: { jobId: data.checkJobId }, select: { id: true } })) {
         return {
           recorded: false,
+          checkId: null,
           outcome: report.outcome,
           priceChanged: false,
           pricePointId: null,
@@ -455,6 +460,7 @@ export async function ingest(deps: IngestDeps, data: IngestJob): Promise<IngestR
       }
       return {
         recorded: true,
+        checkId: check.id,
         outcome,
         priceChanged,
         pricePointId,

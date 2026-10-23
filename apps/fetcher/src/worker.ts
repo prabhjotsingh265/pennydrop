@@ -139,6 +139,14 @@ export async function keepScreenshot(
   }
 }
 
+/** A check, as the logs tell it. Small: BullMQ keeps it with the finished job. */
+export interface CheckSummary {
+  outcome: CheckOutcome;
+  ms: number;
+  strategy: string | null;
+  breaker: 'opened' | 'closed' | null;
+}
+
 /** Outcomes that read the page properly: nothing to look into. */
 const SITE_HEALTHY_READS = new Set<CheckOutcome>(['ok', 'unchanged', 'suspicious']);
 
@@ -151,20 +159,27 @@ export function createFetchProcessor(deps: FetchProcessorDeps) {
   const now = deps.now ?? Date.now;
   const leaseMs = deps.leaseMs ?? 120_000;
 
-  return async (job: Job<FetchJob>, token?: string): Promise<void> => {
+  return async (job: Job<FetchJob>, token?: string): Promise<CheckSummary> => {
     const data = job.data;
     const id = job.id!;
-    const send = (report: CheckReport) =>
-      deps.ingest.add(
+    const send = async (report: CheckReport): Promise<CheckSummary> => {
+      await deps.ingest.add(
         'report',
         { checkJobId: id, job: data, report },
         { ...ingestJobOptions, jobId: id },
       );
+      return {
+        outcome: report.outcome,
+        ms: report.finishedAt - report.startedAt,
+        strategy: report.strategy,
+        breaker: report.breaker.change,
+      };
+    };
 
     // A replay must reach the shop signed; unsigned, it would answer with today's page.
     const replay = data.reason === 'replay';
     if (replay && !deps.replaySecret) {
-      await send({
+      return send({
         ...skipped(data, now(), deps.worker, now()),
         outcome: 'http_error',
         detail: 'Replays aren’t set up on this fetcher: REPLAY_SECRET is missing.',
@@ -172,16 +187,12 @@ export function createFetchProcessor(deps: FetchProcessorDeps) {
         retryAfterSeconds: null,
         breaker: { change: null, openUntil: null },
       });
-      return;
     }
 
     // A replay neither asks the breaker nor tells it: the shop answers replays without its
     // staged failures, so they say nothing about how the live site is doing.
     const decision = replay ? { go: true as const } : await deps.breaker.allow(data.host, id);
-    if (!decision.go) {
-      await send(skipped(data, decision.retryAt, deps.worker, now()));
-      return;
-    }
+    if (!decision.go) return send(skipped(data, decision.retryAt, deps.worker, now()));
 
     const wait = await deps.gate.acquire(
       data.host,
@@ -223,7 +234,7 @@ export function createFetchProcessor(deps: FetchProcessorDeps) {
         health === null || replay ? { change: null } : await deps.breaker.report(data.host, health);
       if (change.change === 'opened') notBefore = Math.max(notBefore ?? 0, change.openUntil);
 
-      await send({
+      return await send({
         ...toReport(result, deps.lane, {
           startedAt,
           finishedAt,

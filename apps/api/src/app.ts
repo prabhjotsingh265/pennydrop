@@ -151,7 +151,8 @@ export function buildApp(deps: AppDeps) {
   }
 
   // For Docker and an uptime monitor: this process answers, and reaches its database and Redis.
-  app.get('/api/health', async (_request, reply) => {
+  // Asked every few seconds, so its requests aren't logged; a failure is.
+  app.get('/api/health', { logLevel: 'warn' }, async (_request, reply) => {
     const [database, redis] = await Promise.all([
       reachable(db.$queryRaw`SELECT 1`),
       deps.redis ? reachable(deps.redis.ping()) : true,
