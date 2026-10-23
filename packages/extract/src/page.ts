@@ -33,9 +33,15 @@ export function loadPage(html: string): Page {
     $('h2, h3').first()[0] ??
     null;
   const buyButtons = $('button, a, input[type="submit"]')
-    .filter((_, el) => BUY.test($(el).text() || $(el).attr('value') || ''))
-    .toArray();
+    .toArray()
+    .filter((el) => BUY.test(textOf(el) || el.attribs.value || ''));
   return { $, title, buyButtons };
+}
+
+/** An element's text, as cheerio's text() reads it, without a wrapper for each of thousands. */
+function textOf(node: AnyNode): string {
+  if (isText(node)) return node.data;
+  return isTag(node) ? node.children.map(textOf).join('') : '';
 }
 
 export interface TextNode {
@@ -43,8 +49,12 @@ export interface TextNode {
   element: Element;
 }
 
-/** Every piece of text in the body, with the element that holds it. */
+const texts = new WeakMap<Page, TextNode[]>();
+
+/** Every piece of text in the body, with the element that holds it. Gathered once a page. */
 export function textNodes(page: Page): TextNode[] {
+  const known = texts.get(page);
+  if (known) return known;
   const out: TextNode[] = [];
   const walk = (node: AnyNode) => {
     if (isText(node)) {
@@ -59,6 +69,7 @@ export function textNodes(page: Page): TextNode[] {
   };
   const body = page.$('body')[0] ?? page.$.root()[0];
   if (body) walk(body);
+  texts.set(page, out);
   return out;
 }
 
@@ -103,18 +114,27 @@ const RELATED_WORDS =
 const RELATED_HEADING =
   /\b(you (might|may) also like|related|similar|recommended|customers also|recently viewed|more from)\b/i;
 
+/**
+ * Whether an element itself says "related products", by its words or its heading. Worked out
+ * once an element: every text in a section of 2,500 reviews asks about that section.
+ */
+const saysRelated = new WeakMap<Element, boolean>();
+
 /** Inside a "you might also like" kind of section, where prices belong to other products. */
 export function isRelated(page: Page, element: Element): boolean {
-  for (const node of ancestors(element)) {
-    const words = attributeWords(node);
-    if (words.some((w) => RELATED_WORDS.test(w)) || words.join('').includes('alsolike'))
-      return true;
-    if (['section', 'aside'].includes(node.name)) {
-      const heading = page.$(node).find('h2, h3, h4').first().text();
-      if (RELATED_HEADING.test(heading)) return true;
+  return ancestors(element).some((node) => {
+    let says = saysRelated.get(node);
+    if (says === undefined) {
+      const words = attributeWords(node);
+      says =
+        words.some((w) => RELATED_WORDS.test(w)) ||
+        words.join('').includes('alsolike') ||
+        (['section', 'aside'].includes(node.name) &&
+          RELATED_HEADING.test(page.$(node).find('h2, h3, h4').first().text()));
+      saysRelated.set(node, says);
     }
-  }
-  return false;
+    return says;
+  });
 }
 
 /** In the site's header, footer or navigation, where prices are offers, not this product. */

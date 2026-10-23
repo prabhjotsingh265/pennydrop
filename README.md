@@ -73,6 +73,25 @@ The demo's history is replayed from the practice shop's own past pages, through 
 and extraction, and is drawn lighter and labelled "replayed", so nothing passes for an observation
 it wasn't.
 
+## Performance, measured
+
+Each budget was set before the code. The pages' are measured against the production build in
+Chromium, and the server's with `make perf`, all on an Apple M3 Pro in Docker, beside the rest of
+the app:
+
+| Budget                                                                                                      | Measured                                                                                                                                                            |
+| ----------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| A watchlist of 100 products, every card shown: under 1.5 s on a desktop, 2.5 s on a mid-range phone over 4G | 0.19–0.20 s on a desktop. 2.07–2.11 s on a phone as Lighthouse models one (150 ms latency, 1.6 Mbps, CPU 4× slower)                                                 |
+| The dashboard's JavaScript on a first visit, charts included: under 200 KB gzipped                          | 154.6 KB (137.7 KB as Brotli over the wire)                                                                                                                         |
+| A year of one product's history (1,460 price changes): under 50 ms                                          | 7–8 ms median, 10–12 ms 95th percentile                                                                                                                             |
+| Our own time per HTTP check, apart from the site's: under 100 ms for 95% of checks                          | The practice shop's page: 1–2 ms (95th percentile 2–3 ms). A 1 MB page: 62–66 ms median, 85–99.5 ms 95th percentile, 38 ms of it parsing the HTML as a browser does |
+| A dispatcher tick with 10,000 products: under 200 ms                                                        | 1 ms with none due. With all due, 500 claimed and queued a tick: 70 ms median, 126 ms the slowest                                                                   |
+| An alert within 60 seconds of the check that found the drop                                                 | Under 4 s: the demo's sale reaches the alerts bell 3.5 s after the sign-in page opens, its check included                                                           |
+
+Measuring found two slow paths, both fixed: the stock check searched a whole reviews section once
+for every review in it (24 seconds on a 670 KB page, now 3 ms), and the price scorer looked up the
+position of every piece of text on the page, not just the prices.
+
 ## How it fits together
 
 ```mermaid
@@ -175,6 +194,7 @@ machine, end-to-end tests included.
 make check          # formatting, lint, type checks, and 576 unit and integration tests
 make test-browser   # 11 tests that need a real Chromium
 make e2e            # 13 end-to-end tests at desktop and phone sizes, with axe on every page
+make perf           # the server's performance budget, measured
 ```
 
 Integration tests run against real PostgreSQL and Redis. CI runs all three on every push; the

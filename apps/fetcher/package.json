@@ -7,7 +7,8 @@
     "build": "tsup",
     "start": "node dist/main.js",
     "typecheck": "tsc",
-    "test": "vitest run --exclude 'src/**/*.browser.test.ts'",
+    "test": "vitest run --exclude 'src/**/*.browser.test.ts' --exclude 'src/**/*.perf.test.ts'",
+    "perf": "vitest run perf.test",
     "test:browser": "vitest run browser"
   },
   "dependencies": {

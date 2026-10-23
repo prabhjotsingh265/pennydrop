@@ -7,7 +7,8 @@
     "build": "tsup",
     "start": "node dist/main.js",
     "typecheck": "tsc",
-    "test": "vitest run",
+    "test": "vitest run --exclude 'src/**/*.perf.test.ts'",
+    "perf": "vitest run perf.test",
     "seed": "tsx src/seed.ts",
     "replay": "tsx src/replay-cli.ts",
     "demo": "tsx src/demo-cli.ts"

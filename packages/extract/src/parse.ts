@@ -85,6 +85,14 @@ function isLetter(char: string | undefined): boolean {
   return char !== undefined && /\p{L}/u.test(char);
 }
 
+/**
+ * The characters symbols end and start with. Only a number with one of these just before or
+ * just after it can have a symbol there: most numbers on a page (counts, dates, sizes) have
+ * none, and skip comparing against every symbol.
+ */
+const SYMBOL_ENDS = new Set(SYMBOLS.map(([symbol]) => symbol.at(-1)!));
+const SYMBOL_STARTS = new Set(SYMBOLS.map(([symbol]) => symbol[0]!));
+
 /** The currency written right before or right after a number, if any. */
 function currencyAround(
   before: string,
@@ -94,7 +102,9 @@ function currencyAround(
   const left = before.trimEnd();
   const right = after.trimStart();
 
-  for (const [symbol, currency, family] of SYMBOLS) {
+  const symbols =
+    SYMBOL_ENDS.has(left.at(-1) ?? '') || SYMBOL_STARTS.has(right[0] ?? '') ? SYMBOLS : [];
+  for (const [symbol, currency, family] of symbols) {
     const wordy = isLetter(symbol[0]);
     const prefix =
       left.endsWith(symbol) && !(wordy && isLetter(left[left.length - symbol.length - 1]));

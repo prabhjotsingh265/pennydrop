@@ -9,7 +9,7 @@ TOOLS := $(COMPOSE) run --rm --no-deps tools
 
 .DEFAULT_GOAL := help
 
-.PHONY: help setup up down restart build logs shell pnpm install migrate seed replay demo check test test-browser e2e lint format prod-build prod-up prod-down prod-logs prod-migrate prod-demo prod-e2e prod-backup prod-backup-test prod-backup-latest prod-restore
+.PHONY: help setup up down restart build logs shell pnpm install migrate seed replay demo check test test-browser e2e perf lint format prod-build prod-up prod-down prod-logs prod-migrate prod-demo prod-e2e prod-backup prod-backup-test prod-backup-latest prod-restore
 
 help: ## List the available commands
 	@grep -E '^[a-z-]+:.*## ' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*## "}; {printf "  make %-10s %s\n", $$1, $$2}'
@@ -78,6 +78,10 @@ e2e: ## Run the end-to-end tests against the running app (make up first)
 	docker run --rm --network container:$$($(COMPOSE) ps -q web) --user $$(id -u):$$(id -g) \
 		-v "$(CURDIR)":/app -v pennydrop_pnpm-store:/pnpm-store -w /app -e HOME=/tmp \
 		pennydrop-browser:dev pnpm --filter @pennydrop/e2e e2e
+
+perf: ## Measure the server's performance budget: a year of history, a dispatcher tick, our time per check
+	$(TOOLS) pnpm --filter @pennydrop/api --filter @pennydrop/worker --filter @pennydrop/fetcher \
+		--workspace-concurrency=1 run perf
 
 lint: ## Lint every package
 	$(TOOLS) pnpm lint

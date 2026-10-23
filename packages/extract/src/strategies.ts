@@ -165,8 +165,13 @@ export function fromMicrodata(page: Page, hints: PriceHints): StrategyResult {
 
 /** Strategy 3: price meta tags (Open Graph and the product: namespace). */
 export function fromMetaTags(page: Page, hints: PriceHints): StrategyResult {
-  const { $ } = page;
-  const content = (property: string) => $(`meta[property="${property}"]`).attr('content');
+  // Every property tag read in one pass, the first of each kept, as a search for each would.
+  const tags = new Map<string, string | undefined>();
+  page.$('meta[property]').each((_, element) => {
+    const property = element.attribs.property!;
+    if (!tags.has(property)) tags.set(property, element.attribs.content);
+  });
+  const content = (property: string) => tags.get(property);
   const value = content('product:price:amount') ?? content('og:price:amount');
   const currency =
     content('product:price:currency') ?? content('og:price:currency') ?? hints.currency ?? null;
@@ -235,8 +240,12 @@ export function fromHeuristics(
   const layout = new Map(boxes.map((box) => [box.path.join('.'), box]));
 
   for (const { text, element } of textNodes(page)) {
-    const box = layout.get(pathOf(element).join('.'));
-    for (const price of findPrices(text, hints)) {
+    const prices = findPrices(text, hints);
+    if (!prices.length) continue;
+    // Only priced text is looked up: finding an element's place among thousands of siblings
+    // for every piece of text on a big page costs more than all the rest.
+    const box = layout.size ? layout.get(pathOf(element).join('.')) : undefined;
+    for (const price of prices) {
       if (isWasPrice(element) || box?.struck || WAS_WORDING.test(text)) {
         was.push({ amount: price.amount, element });
         continue;
@@ -307,11 +316,17 @@ export function fromHeuristics(
   }
 
   scored.sort((a, b) => b.confidence - a.confidence);
-  const candidates = scored.map(({ element, box: _box, ...candidate }) => {
+  const candidates = scored.map(({ element, box: _box, ...candidate }, rank) => {
     const old = was
       .filter((w) => w.amount > candidate.amount && distance(w.element, element) <= 4)
       .sort((a, b) => distance(a.element, element) - distance(b.element, element))[0];
-    return { ...candidate, was: old?.amount ?? null, locator: selectorFor(page.$, element) };
+    // Only a strategy's best candidate can teach the site a selector, so only it gets one:
+    // writing a unique selector searches the whole page, again and again.
+    return {
+      ...candidate,
+      was: old?.amount ?? null,
+      ...(rank === 0 && { locator: selectorFor(page.$, element) }),
+    };
   });
   return result('heuristic', candidates);
 }
