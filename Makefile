@@ -9,7 +9,7 @@ TOOLS := $(COMPOSE) run --rm --no-deps tools
 
 .DEFAULT_GOAL := help
 
-.PHONY: help setup up down restart build logs shell pnpm install migrate seed replay demo check test test-browser e2e perf lint format prod-build prod-up prod-down prod-logs prod-migrate prod-demo prod-e2e prod-backup prod-backup-test prod-backup-latest prod-restore
+.PHONY: help setup up down restart build logs shell pnpm install migrate seed replay demo check test test-browser e2e perf share-image lint format prod-build prod-up prod-down prod-logs prod-migrate prod-demo prod-e2e prod-backup prod-backup-test prod-backup-latest prod-restore
 
 help: ## List the available commands
 	@grep -E '^[a-z-]+:.*## ' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*## "}; {printf "  make %-10s %s\n", $$1, $$2}'
@@ -82,6 +82,10 @@ e2e: ## Run the end-to-end tests against the running app (make up first)
 perf: ## Measure the server's performance budget: a year of history, a dispatcher tick, our time per check
 	$(TOOLS) pnpm --filter @pennydrop/api --filter @pennydrop/worker --filter @pennydrop/fetcher \
 		--workspace-concurrency=1 run perf
+
+share-image: ## Draw the link-preview image (apps/web/public/share.png) again
+	docker run --rm --user $$(id -u):$$(id -g) -v "$(CURDIR)":/app -w /app/apps/e2e -e HOME=/tmp \
+		pennydrop-browser:dev node tools/share-image.mjs
 
 lint: ## Lint every package
 	$(TOOLS) pnpm lint

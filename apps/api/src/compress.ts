@@ -6,8 +6,8 @@ const brotli = promisify(brotliCompress);
 const gzipped = promisify(gzip);
 /** Smaller answers gain too little to be worth the work. */
 const MIN_BYTES = 1024;
-/** JSON and CSV: the API's own answers. Pages and their files come compressed already. */
-const COMPRESSIBLE = /^(application\/json|text\/csv)\b/;
+/** JSON, CSV, and the pages rendered at build time (sent from memory). Files come compressed already. */
+const COMPRESSIBLE = /^(application\/json|text\/csv|text\/html)\b/;
 
 /** The encoding to answer in, from the browser's Accept-Encoding: Brotli, then gzip, or none. */
 export function encodingFor(accept: string | undefined): 'br' | 'gzip' | null {

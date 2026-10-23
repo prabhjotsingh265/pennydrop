@@ -169,10 +169,16 @@ make prod-logs   # follow the logs
 ```
 
 The API listens on this machine only (port 8080); a tunnel or proxy in front serves it over
-HTTPS. Pages are sent with a strict content security policy (nothing inline, nothing from another
-origin), and with HSTS once `APP_URL` is `https`. Production won't start without its secrets or a
-way to send email. `.env.production.example` says how to rehearse the whole thing on your own
-machine, end-to-end tests included.
+HTTPS. Pages are sent with a strict content security policy (no inline scripts or styles, nothing
+from another origin), and with HSTS once `APP_URL` is `https`. Production won't start without its
+secrets or a way to send email. `.env.production.example` says how to rehearse the whole thing on
+your own machine, end-to-end tests included.
+
+- **Rendered ahead of time:** the front page, `/bot`, privacy and terms are rendered to HTML at
+  build time, with their own titles, descriptions and a link-preview image, so search engines and
+  previews read them without running anything, and a phone shows the front page before the app's
+  code arrives. Their policy also allows the style attributes React wrote into them; they show
+  nobody's data. Every other page is kept out of search results.
 
 - **Backups:** a dump of the database every day, the last 14 kept on the server.
   `make prod-backup-test` restores the newest into a scratch database and compares it table by
@@ -191,7 +197,7 @@ machine, end-to-end tests included.
 ## Tests
 
 ```sh
-make check          # formatting, lint, type checks, and 576 unit and integration tests
+make check          # formatting, lint, type checks, and 583 unit and integration tests
 make test-browser   # 11 tests that need a real Chromium
 make e2e            # 13 end-to-end tests at desktop and phone sizes, with axe on every page
 make perf           # the server's performance budget, measured

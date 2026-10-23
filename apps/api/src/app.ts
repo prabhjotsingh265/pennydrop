@@ -3,7 +3,6 @@ import { updateWorkspaceSchema, type Me } from '@pennydrop/domain';
 import type { Mailer } from '@pennydrop/alerts';
 import type { LiveMessage } from '@pennydrop/queue';
 import type { Queue } from 'bullmq';
-import fastifyStatic from '@fastify/static';
 import { fromNodeHeaders } from 'better-auth/node';
 import Fastify, { type FastifyReply, type FastifyRequest } from 'fastify';
 import { ZodError } from 'zod';
@@ -19,6 +18,7 @@ import { groupRoutes } from './groups.ts';
 import { limitHook, type Limiter } from './limits.ts';
 import { previewRoutes } from './preview-routes.ts';
 import type { ShopControls } from './shop-controls.ts';
+import { serveWeb } from './web.ts';
 import { reportRoutes } from './reports.ts';
 import type { Previews } from './previews.ts';
 import { watchRoutes } from './watches.ts';
@@ -81,13 +81,19 @@ async function reachable(answer: Promise<unknown>): Promise<boolean> {
 
 /**
  * What a page from Pennydrop may load: only its own scripts, styles, fonts and
- * data, images from itself (and drawn ones), and never a frame around it.
+ * data, images from itself (and drawn ones), and never a frame around it. The
+ * pages rendered at build time also keep the style attributes React wrote into
+ * them (a wheel's offset, a card's tint); they hold nobody's data.
  */
-export function contentSecurityPolicy(https: boolean): string {
+export function contentSecurityPolicy(
+  https: boolean,
+  { styleAttributes = false }: { styleAttributes?: boolean } = {},
+): string {
   return [
     "default-src 'self'",
     "script-src 'self'",
     "style-src 'self'",
+    ...(styleAttributes ? ["style-src-attr 'unsafe-inline'"] : []),
     "img-src 'self' data: blob:",
     "font-src 'self'",
     "connect-src 'self'",
@@ -117,7 +123,8 @@ export function buildApp(deps: AppDeps) {
     reply.header('x-frame-options', 'DENY');
     reply.header('referrer-policy', 'strict-origin-when-cross-origin');
     reply.header('cross-origin-resource-policy', 'same-origin');
-    reply.header('content-security-policy', policy);
+    if (!reply.hasHeader('content-security-policy'))
+      reply.header('content-security-policy', policy);
     if (https) reply.header('strict-transport-security', 'max-age=31536000');
     if (request.url.startsWith('/api/') && !reply.hasHeader('cache-control')) {
       reply.header('cache-control', 'no-store');
@@ -125,32 +132,11 @@ export function buildApp(deps: AppDeps) {
   });
   app.addHook('onSend', compressAnswer);
 
-  // Production: the built app, from the API itself. Its hashed files never change, so they're
-  // kept for a year; index.html is asked for afresh, and answers for every page of the app.
   if (config.webDist) {
-    app.register(fastifyStatic, {
-      root: config.webDist,
-      wildcard: false,
-      index: false,
-      // The build writes .br and .gz beside each text file: sent as the browser accepts.
-      preCompressed: true,
-      setHeaders: (reply, path) => {
-        reply.header(
-          'cache-control',
-          path.includes('/assets/') ? 'public, max-age=31536000, immutable' : 'no-cache',
-        );
-      },
-    });
-    app.setNotFoundHandler((request, reply) => {
-      // Any other address is one of the app's pages. A missing file (an old build's script
-      // after a deploy) or API route is a plain 404, never the page in its place.
-      const path = request.url.split('?')[0]!;
-      const page =
-        (request.method === 'GET' || request.method === 'HEAD') &&
-        !path.startsWith('/api/') &&
-        !/\.[^/]*$/.test(path);
-      if (!page) return reply.code(404).send({ error: 'Not found.' });
-      return reply.header('cache-control', 'no-cache').sendFile('index.html');
+    serveWeb(app, {
+      webDist: config.webDist,
+      appUrl: config.appUrl,
+      pagePolicy: contentSecurityPolicy(https, { styleAttributes: true }),
     });
   }
 

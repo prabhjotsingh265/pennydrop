@@ -6,10 +6,17 @@ import { afterAll, describe, expect, it } from 'vitest';
 import { harness } from '../test/harness.ts';
 import { contentSecurityPolicy } from './app.ts';
 
-// A built app, as Vite writes it: index.html, and hashed files under assets/.
+// A built app, as Vite writes it: index.html, and hashed files under assets/; and the public
+// pages rendered ahead of time, with a placeholder for the server's address.
 const dist = mkdtempSync(join(tmpdir(), 'pennydrop-web-'));
 mkdirSync(join(dist, 'assets'));
+mkdirSync(join(dist, 'pages'));
 writeFileSync(join(dist, 'index.html'), '<!doctype html><title>Pennydrop</title>');
+const rendered = (title: string) =>
+  `<!doctype html><title>${title}</title><link rel="canonical" href="__APP_URL__/x" />` +
+  `<div id="root"><h1 style="color:red">${title}</h1></div>`;
+writeFileSync(join(dist, 'pages', 'index.html'), rendered('Know when the penny drops'));
+writeFileSync(join(dist, 'pages', 'bot.html'), rendered('Our crawler'));
 writeFileSync(join(dist, 'assets', 'index-a1b2c3.js'), 'console.log(1)');
 writeFileSync(join(dist, 'robots.txt'), 'User-agent: *');
 // And compressed, as the build writes them.
@@ -27,15 +34,41 @@ afterAll(async () => {
 const get = (url: string) => h.app.inject({ method: 'GET', url });
 
 describe('the built app, from the API', () => {
-  it('answers every page of the app with index.html, asked for afresh each time', async () => {
-    for (const url of ['/', '/app', '/app/p/0193?x=1', '/demo']) {
+  it('answers every page of the app with index.html, asked for afresh, and kept out of search', async () => {
+    for (const url of ['/app', '/app/p/0193?x=1', '/demo', '/signin']) {
       const page = await get(url);
       expect(page.statusCode).toBe(200);
       expect(page.body).toContain('<title>Pennydrop</title>');
       expect(page.headers['cache-control']).toBe('no-cache');
+      expect(page.headers['x-robots-tag']).toBe('noindex');
+      expect(page.headers['content-security-policy']).toBe(contentSecurityPolicy(false));
     }
     // Uptime monitors ask with HEAD.
     expect((await h.app.inject({ method: 'HEAD', url: '/' })).statusCode).toBe(200);
+  });
+
+  it('answers the public pages rendered, with the server’s own address, for search and previews', async () => {
+    for (const [url, title] of [
+      ['/', 'Know when the penny drops'],
+      ['/bot', 'Our crawler'],
+      ['/bot/', 'Our crawler'],
+      ['/bot?from=log', 'Our crawler'],
+    ] as const) {
+      const page = await get(url);
+      expect(page.statusCode).toBe(200);
+      expect(page.headers['content-type']).toBe('text/html; charset=utf-8');
+      expect(page.headers['cache-control']).toBe('no-cache');
+      expect(page.headers['x-robots-tag']).toBeUndefined();
+      expect(page.body).toContain(`<h1 style="color:red">${title}</h1>`);
+      expect(page.body).toContain('href="http://localhost:3000/x"');
+      // React's style attributes in the rendered page are allowed; nothing else is loosened.
+      const policy = page.headers['content-security-policy'];
+      expect(policy).toBe(contentSecurityPolicy(false, { styleAttributes: true }));
+      expect(policy).toContain("style-src-attr 'unsafe-inline'");
+      expect(policy).toContain("script-src 'self';");
+    }
+    // Never as the build left them, placeholder and all.
+    expect((await get('/pages/index.html')).statusCode).toBe(404);
   });
 
   it('sends the compressed copy the browser takes, pages included', async () => {
@@ -85,8 +118,13 @@ describe('the built app, from the API', () => {
     expect((await h.app.inject({ method: 'POST', url: '/somewhere' })).statusCode).toBe(404);
   });
 
-  it('sends the content security policy with every page', async () => {
-    expect((await get('/')).headers['content-security-policy']).toBe(contentSecurityPolicy(false));
+  it('sends the strict content security policy with the app’s pages and its files', async () => {
+    expect((await get('/app')).headers['content-security-policy']).toBe(
+      contentSecurityPolicy(false),
+    );
+    expect((await get('/robots.txt')).headers['content-security-policy']).toBe(
+      contentSecurityPolicy(false),
+    );
   });
 });
 

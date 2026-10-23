@@ -8,7 +8,8 @@ type Direction = 'up' | 'down';
 // so it can always roll the right way: down for a drop, even from 0 to 9.
 const STRIP = Array.from({ length: 30 }, (_, i) => i % 10);
 const MIDDLE = 10;
-const ROW = 1.15; // em
+// One row of a wheel, in em: the h-[1.15em] and leading-[1.15em] below are the same.
+const ROW = 1.15;
 
 export function nextIndex(index: number, from: number, to: number, direction: Direction): number {
   const steps = direction === 'down' ? (from - to + 10) % 10 : (to - from + 10) % 10;
@@ -40,7 +41,7 @@ function Wheel({
   }
 
   return (
-    <span className="relative inline-block overflow-hidden" style={{ height: `${ROW}em` }}>
+    <span className="relative inline-block h-[1.15em] overflow-hidden">
       <span
         className="flex flex-col"
         style={{
@@ -54,7 +55,7 @@ function Wheel({
         }}
       >
         {STRIP.map((d, i) => (
-          <span key={i} className="block" style={{ height: `${ROW}em`, lineHeight: `${ROW}em` }}>
+          <span key={i} className="block h-[1.15em] leading-[1.15em]">
             {d}
           </span>
         ))}
@@ -87,14 +88,14 @@ export function PriceDigits({ value, currency = 'GBP', className = '' }: PriceDi
   return (
     <span className={`tabular inline-flex items-end ${className}`}>
       <span className="sr-only">{text}</span>
-      <span aria-hidden="true" className="inline-flex" style={{ lineHeight: `${ROW}em` }}>
+      <span aria-hidden="true" className="inline-flex leading-[1.15em]">
         {chars.map((char, i) => {
           // Keyed from the right, so pence stay pence when the pounds grow a digit.
           const key = chars.length - i;
           return /\d/.test(char) ? (
             <Wheel key={key} digit={Number(char)} direction={direction} reduced={reduced} />
           ) : (
-            <span key={key} className="inline-block" style={{ height: `${ROW}em` }}>
+            <span key={key} className="inline-block h-[1.15em]">
               {char}
             </span>
           );

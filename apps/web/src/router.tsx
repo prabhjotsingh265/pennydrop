@@ -1,4 +1,4 @@
-import { createBrowserRouter, Navigate, Outlet, useNavigation } from 'react-router';
+import { Navigate, Outlet, useNavigation, type RouteObject } from 'react-router';
 import { ErrorPage } from './landing/ErrorPage.tsx';
 
 // Each page arrives with its own code, when it's first opened: the front page doesn't carry
@@ -29,7 +29,8 @@ function Root() {
   );
 }
 
-export const router = createBrowserRouter([
+/** Every page: the browser's router is made from these (main.tsx), and so is the build's prerender. */
+export const routes: RouteObject[] = [
   // Whatever any page throws ends on the error page, not a blank screen.
   {
     Component: Root,
@@ -148,4 +149,4 @@ export const router = createBrowserRouter([
       },
     ],
   },
-]);
+];

@@ -23,9 +23,11 @@ function precompress(): Plugin {
     name: 'pennydrop:precompress',
     apply: 'build',
     configResolved(config) {
-      outDir = resolve(config.root, config.build.outDir);
+      // The prerender's own build, for Node, is never served.
+      outDir = config.build.ssr ? '' : resolve(config.root, config.build.outDir);
     },
     closeBundle() {
+      if (!outDir) return;
       for (const path of files(outDir)) {
         // Fonts and images are compressed already; tiny files gain nothing.
         if (!/\.(js|css|html|svg|txt|json|xml)$/.test(path) || statSync(path).size < 1024) continue;

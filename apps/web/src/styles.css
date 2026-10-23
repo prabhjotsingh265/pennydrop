@@ -39,6 +39,25 @@
   --danger: oklch(0.7 0.16 27);
 }
 
+/* The same steps before the app's script has chosen a theme: a page rendered ahead of time,
+   its code still on the way, follows the system's setting rather than flashing light. */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme]) {
+    color-scheme: dark;
+    --paper: oklch(0.175 0.016 225);
+    --surface: oklch(0.215 0.018 225);
+    --line: oklch(0.31 0.02 225);
+    --ink: oklch(0.95 0.008 75);
+    --ink-2: oklch(0.75 0.015 225);
+    --copper: oklch(0.76 0.13 58);
+    --copper-deep: oklch(0.76 0.13 58);
+    --on-copper: oklch(0.175 0.016 225);
+    --verdigris: oklch(0.78 0.09 180);
+    --verdigris-deep: oklch(0.78 0.09 180);
+    --danger: oklch(0.7 0.16 27);
+  }
+}
+
 @theme inline {
   --font-sans: 'Mona Sans Variable', ui-sans-serif, system-ui, sans-serif;
   --font-mono: 'Martian Mono Variable', ui-monospace, monospace;
