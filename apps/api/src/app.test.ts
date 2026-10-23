@@ -16,6 +16,15 @@ describe('GET /api/health', () => {
     const response = await h.app.inject({ method: 'GET', url: '/api/health' });
     expect(response.json()).toEqual({ status: 'ok' });
   });
+
+  it('says which store it can’t reach, for an uptime monitor to notice', async () => {
+    const down = harness({ redis: { ping: () => Promise.reject(new Error('ECONNREFUSED')) } });
+    const response = await down.app.inject({ method: 'GET', url: '/api/health' });
+    expect(response.statusCode).toBe(503);
+    expect(response.json()).toEqual({ status: 'down', database: true, redis: false });
+    await down.app.close();
+    await down.db.$disconnect();
+  });
 });
 
 describe('every answer', () => {

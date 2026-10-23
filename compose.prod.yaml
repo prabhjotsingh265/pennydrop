@@ -137,6 +137,27 @@ services:
       timeout: 3s
       retries: 20
 
+  # A dump of the database every day, the last 14 kept in the backups volume. Copy them off the
+  # server too: make prod-backup-latest streams the newest to wherever you run it from.
+  backup:
+    <<: *logs
+    image: postgres:17-alpine
+    restart: unless-stopped
+    command: ['/scripts/backup.sh']
+    environment:
+      PGHOST: postgres
+      PGDATABASE: ${POSTGRES_DB:-pennydrop}
+      PGUSER: ${POSTGRES_USER:-pennydrop}
+      PGPASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env.production}
+      BACKUP_KEEP_DAYS: ${BACKUP_KEEP_DAYS:-14}
+    volumes:
+      - ./docker/backup:/scripts:ro
+      - backups:/backups
+    networks: [data]
+    depends_on:
+      postgres:
+        condition: service_healthy
+
   # One-off jobs on the full build (migrations, the demo's showcase, backups):
   #   docker compose -f compose.prod.yaml run --rm tools pnpm --filter @pennydrop/db migrate
   tools:
@@ -161,3 +182,4 @@ volumes:
   postgres-data:
   redis-data:
   screenshots:
+  backups:

@@ -15,6 +15,7 @@ import { configFromEnv } from './config.ts';
 import { redisLimiter } from './limits.ts';
 import { shopControls } from './shop-controls.ts';
 import { LiveHub } from './live.ts';
+import { startWatchdog } from './watchdog.ts';
 
 import { queuePreviews } from './previews.ts';
 
@@ -74,8 +75,13 @@ const app = buildApp({
   limiter,
   shop,
   queues,
+  redis: connection,
 });
 const port = Number(process.env.API_PORT ?? 3001);
+
+// The watchdog: emails the admins when checks stop reading pages, or the schedule or a queue
+// falls behind. It lives here, not in the worker, so a dead worker can't silence it.
+const stopWatchdog = startWatchdog({ db, redis: connection, queues, mail, config, now: Date.now });
 
 // Finish in-flight requests before exiting when Docker stops the container.
 for (const signal of ['SIGINT', 'SIGTERM'] as const) {
@@ -84,6 +90,7 @@ for (const signal of ['SIGINT', 'SIGTERM'] as const) {
       .close()
       .then(() => {
         clearInterval(heartbeat);
+        stopWatchdog();
         return Promise.all([
           ticks.close(),
           previews.close(),

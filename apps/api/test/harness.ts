@@ -4,7 +4,7 @@ import { join } from 'node:path';
 import { resetDatabase, testDb } from '@pennydrop/db/testing';
 import { vi } from 'vitest';
 import type { Lookup } from '../src/addresses.ts';
-import { buildApp } from '../src/app.ts';
+import { buildApp, type AppDeps } from '../src/app.ts';
 import { unlimited, type Limiter } from '../src/limits.ts';
 import type { Queue } from 'bullmq';
 import { createAuth } from '../src/auth.ts';
@@ -21,7 +21,13 @@ export function harness({
   limiter = unlimited,
   queues,
   webDist,
-}: { limiter?: Limiter; queues?: Record<string, Queue>; webDist?: string } = {}) {
+  redis,
+}: {
+  limiter?: Limiter;
+  queues?: Record<string, Queue>;
+  webDist?: string;
+  redis?: AppDeps['redis'];
+} = {}) {
   const db = testDb('api');
   const sent: Email[] = [];
   const config: Config = {
@@ -66,6 +72,7 @@ export function harness({
     limiter,
     shop,
     queues,
+    redis,
     lookup,
     logger: false,
   });

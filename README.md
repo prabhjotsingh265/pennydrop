@@ -155,10 +155,22 @@ origin), and with HSTS once `APP_URL` is `https`. Production won't start without
 way to send email. `.env.production.example` says how to rehearse the whole thing on your own
 machine, end-to-end tests included.
 
+- **Backups:** a dump of the database every day, the last 14 kept on the server.
+  `make prod-backup-test` restores the newest into a scratch database and compares it table by
+  table. To keep a copy elsewhere, run this from another machine:
+  `ssh server 'make -s -C pennydrop prod-backup-latest' > pennydrop.dump`. Keep `.env.production`
+  somewhere safe too: without `CHANNELS_KEY`, saved alert channels can't be read.
+- **A watchdog:** the API emails `ADMIN_EMAILS` when no check has read a page for 15 minutes, the
+  schedule or a queue falls 10 minutes behind, a queue has no worker, or a day's backup is
+  missed, once it has lasted two minutes, and again when it's put right. It runs in the API, so a
+  dead worker can't silence it.
+- **For an uptime monitor:** `/api/health` answers 503 when the database or Redis can't be
+  reached.
+
 ## Tests
 
 ```sh
-make check          # formatting, lint, type checks, and 560 unit and integration tests
+make check          # formatting, lint, type checks, and 576 unit and integration tests
 make test-browser   # 11 tests that need a real Chromium
 make e2e            # 13 end-to-end tests at desktop and phone sizes, with axe on every page
 ```

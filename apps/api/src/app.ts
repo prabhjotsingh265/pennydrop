@@ -54,12 +54,29 @@ export interface AppDeps {
   shop?: ShopControls | null;
   /** Every queue by name, for the System page to count. */
   queues?: Record<string, Queue>;
+  /** Redis, for the health address to reach. */
+  redis?: { ping: () => Promise<unknown> };
   lookup?: Lookup;
   now?: () => number;
   logger?: boolean;
 }
 
 const SAFE = new Set(['GET', 'HEAD', 'OPTIONS']);
+
+/** Whether a store answered within two seconds. */
+async function reachable(answer: Promise<unknown>): Promise<boolean> {
+  let timer: NodeJS.Timeout | undefined;
+  const late = new Promise<boolean>((resolve) => {
+    timer = setTimeout(resolve, 2_000, false);
+  });
+  try {
+    return await Promise.race([answer.then(() => true), late]);
+  } catch {
+    return false;
+  } finally {
+    clearTimeout(timer);
+  }
+}
 
 /**
  * What a page from Pennydrop may load: only its own scripts, styles, fonts and
@@ -133,7 +150,15 @@ export function buildApp(deps: AppDeps) {
     });
   }
 
-  app.get('/api/health', async () => ({ status: 'ok' }));
+  // For Docker and an uptime monitor: this process answers, and reaches its database and Redis.
+  app.get('/api/health', async (_request, reply) => {
+    const [database, redis] = await Promise.all([
+      reachable(db.$queryRaw`SELECT 1`),
+      deps.redis ? reachable(deps.redis.ping()) : true,
+    ]);
+    if (database && redis) return { status: 'ok' };
+    return reply.code(503).send({ status: 'down', database, redis });
+  });
 
   // Signing in and up are counted per address, before anything else happens.
   app.addHook('onRequest', limitHook(deps.limiter, 'ip'));

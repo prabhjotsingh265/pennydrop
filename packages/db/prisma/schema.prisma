@@ -528,3 +528,14 @@ model Delivery {
   @@index([channelId, createdAt])
   @@map("deliveries")
 }
+
+/// A database backup, recorded by docker/backup/backup.sh once its dump is whole and readable,
+/// so the watchdog notices a missed one.
+model Backup {
+  id      BigInt   @id @default(autoincrement())
+  takenAt DateTime @default(now()) @map("taken_at") @db.Timestamptz
+  file    String
+  bytes   BigInt
+
+  @@map("backups")
+}

@@ -9,7 +9,7 @@ TOOLS := $(COMPOSE) run --rm --no-deps tools
 
 .DEFAULT_GOAL := help
 
-.PHONY: help setup up down restart build logs shell pnpm install migrate seed replay demo check test test-browser e2e lint format prod-build prod-up prod-down prod-logs prod-migrate prod-demo prod-e2e
+.PHONY: help setup up down restart build logs shell pnpm install migrate seed replay demo check test test-browser e2e lint format prod-build prod-up prod-down prod-logs prod-migrate prod-demo prod-e2e prod-backup prod-backup-test prod-backup-latest prod-restore
 
 help: ## List the available commands
 	@grep -E '^[a-z-]+:.*## ' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*## "}; {printf "  make %-10s %s\n", $$1, $$2}'
@@ -109,6 +109,23 @@ prod-migrate: ## Production: apply database migrations
 
 prod-demo: ## Production: build the demo's showcase (days=60)
 	$(PROD) run --rm tools pnpm --filter @pennydrop/worker demo --days $(or $(days),60) --wait
+
+prod-backup: ## Production: list the database backups (one a day, the last 14 kept)
+	$(PROD) exec -T backup ls -lh /backups
+
+prod-backup-test: ## Production: restore a backup into a scratch database and compare it (file=newest)
+	$(PROD) exec -T backup /scripts/restore-test.sh $(if $(file),/backups/$(notdir $(file)))
+
+prod-backup-latest: ## Production: the newest backup, to stdout: ssh server 'make -s -C pennydrop prod-backup-latest' > x.dump
+	@$(PROD) exec -T backup sh -c 'cat "$$(ls -1t /backups/pennydrop-*.dump | head -n 1)"'
+
+prod-restore: ## Production: replace the database with a backup (file=pennydrop-YYYY-MM-DD.dump confirm=yes)
+	@[ "$(confirm)" = yes ] || { echo "This replaces the live database. Add confirm=yes to go ahead."; exit 1; }
+	@[ -n "$(file)" ] || { echo "Name the backup: file=pennydrop-YYYY-MM-DD.dump (make prod-backup lists them)"; exit 1; }
+	$(PROD) stop api worker fetch-http fetch-browser
+	$(PROD) exec -T backup /scripts/restore.sh /backups/$(notdir $(file))
+	$(PROD) run --rm tools pnpm --filter @pennydrop/db migrate
+	$(PROD) up -d --wait
 
 prod-e2e: ## Production: run the end-to-end tests against its APP_URL, from the API's own network
 	$(PROD) exec -T redis sh -c 'redis-cli --scan --pattern "pennydrop:limit:POST:/api/demo:*" | while IFS= read -r k; do redis-cli del "$$k" >/dev/null; done'

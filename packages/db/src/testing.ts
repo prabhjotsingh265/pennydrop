@@ -60,6 +60,6 @@ export function testDb(suite: string): Db {
 /** Empties every table, between tests. */
 export async function resetDatabase(db: Db): Promise<void> {
   await db.$executeRawUnsafe(
-    'TRUNCATE TABLE deliveries, alerts, channels, alert_rules, watches, product_groups, memberships, workspaces, verifications, accounts, sessions, users, events, price_points, checks, recipes, targets, sites RESTART IDENTITY CASCADE',
+    'TRUNCATE TABLE deliveries, alerts, channels, alert_rules, watches, product_groups, memberships, workspaces, verifications, accounts, sessions, users, events, price_points, checks, recipes, targets, sites, backups RESTART IDENTITY CASCADE',
   );
 }
